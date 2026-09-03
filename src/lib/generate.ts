@@ -34,9 +34,11 @@ people or place involved.
 
 Also classify the post into exactly one category:
 - "Music": artists, albums, concerts, the music industry/business, music-scene profiles
-- "News": general local news (crime, politics, business, weather) that isn't music- or
-  culture-specific but is relevant to the Atlanta audience
-- "Culture": non-music arts and entertainment — film/TV, theater, visual art, food, nightlife
+- "Entertainment": celebrity news, TV/film, general entertainment-industry stories that are
+  NOT specifically about music (e.g. an actor, a TV show, a celebrity's personal life)
+- "News": general local news (crime, politics, business, weather) that isn't music-,
+  entertainment-, or culture-specific but is relevant to the Atlanta audience
+- "Culture": non-celebrity arts and culture — visual art, theater, food, nightlife, museums
 - "Events": roundups or previews of upcoming happenings (weekend guides, festival previews,
   convention coverage) rather than a report on something that already occurred
 
@@ -69,7 +71,7 @@ const PUBLISH_TOOL: Anthropic.Tool = {
       },
       category: {
         type: "string",
-        enum: ["Music", "News", "Culture", "Events"],
+        enum: ["Music", "Entertainment", "News", "Culture", "Events"],
         description: "The single best-fit category for this post.",
       },
     },
@@ -91,7 +93,7 @@ export interface SourceInput {
   text: string;
 }
 
-export type Category = "Music" | "News" | "Culture" | "Events";
+export type Category = "Music" | "Entertainment" | "News" | "Culture" | "Events";
 
 export interface GeneratedArticle {
   title: string;

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-
-const CATEGORIES = ["Music", "News", "Culture", "Events"];
+import { CATEGORIES } from "@/lib/categories";
 
 export default function SiteHeader({
   activeCategory,

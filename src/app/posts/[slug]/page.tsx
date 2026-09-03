@@ -53,7 +53,7 @@ export default async function PostPage({
               />
             </div>
             <p className="mt-2 text-xs text-zinc-400">
-              Stock photo (not a photo of the actual people or event) —{" "}
+              Photo by{" "}
               {post.image_credit_url ? (
                 <a
                   href={post.image_credit_url}
