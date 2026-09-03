@@ -43,7 +43,7 @@ export default async function Home({
             <p className="text-zinc-500">
               {activeCategory
                 ? `No ${activeCategory} posts yet.`
-                : "No posts yet — click “Run pipeline” in the header above."}
+                : "No posts yet — check back soon."}
             </p>
           </div>
         )}
@@ -51,7 +51,7 @@ export default async function Home({
         {featured && (
           <Link
             href={`/posts/${featured.slug}`}
-            className="group mb-10 grid gap-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white sm:grid-cols-2 sm:gap-6"
+            className="group mb-10 grid gap-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors hover:border-brand/40 sm:grid-cols-2 sm:gap-6"
           >
             <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-100 sm:aspect-auto">
               {featured.image_url ? (
@@ -71,7 +71,7 @@ export default async function Home({
             </div>
             <div className="flex flex-col justify-center p-5 sm:p-8">
               <CategoryBadge category={featured.category} />
-              <h2 className="font-display mt-2 text-xl font-bold leading-tight text-zinc-900 group-hover:underline sm:mt-3 sm:text-3xl">
+              <h2 className="font-display mt-2 text-xl font-bold leading-tight text-ink group-hover:text-brand-dark sm:mt-3 sm:text-3xl">
                 {featured.title}
               </h2>
               <p className="mt-2 line-clamp-2 text-sm text-zinc-600 sm:mt-3 sm:line-clamp-3 sm:text-base">
@@ -90,7 +90,8 @@ export default async function Home({
 
         {rest.length > 0 && (
           <>
-            <h2 className="font-display mb-4 text-lg font-bold text-zinc-900">
+            <h2 className="font-display mb-4 flex items-center gap-2 text-lg font-bold text-ink">
+              <span className="h-4 w-1 rounded-full bg-brand" />
               {activeCategory ? `More ${activeCategory}` : "Latest"}
             </h2>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

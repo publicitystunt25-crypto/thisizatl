@@ -30,7 +30,7 @@ export default async function PostPage({
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
         <CategoryBadge category={post.category} />
-        <h1 className="font-display mt-3 text-3xl font-bold leading-tight text-zinc-900 sm:text-4xl">
+        <h1 className="font-display mt-3 text-3xl font-bold leading-tight text-ink sm:text-4xl">
           {post.title}
         </h1>
         <p className="mt-3 text-sm text-zinc-500">
@@ -76,7 +76,7 @@ export default async function PostPage({
         </div>
 
         <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-5 text-sm">
-          <p className="font-semibold text-zinc-700">Sources</p>
+          <p className="font-semibold text-ink">Sources</p>
           <ul className="mt-2 space-y-1.5">
             {sources.map((s, i) => (
               <li key={i}>
@@ -84,7 +84,7 @@ export default async function PostPage({
                   href={s.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-700 hover:underline"
+                  className="text-brand-dark hover:underline"
                 >
                   {s.source}: {s.title}
                 </a>

@@ -1,5 +1,5 @@
 const COLORS: Record<string, string> = {
-  Music: "bg-orange-100 text-orange-800",
+  Music: "bg-brand/15 text-brand-dark",
   Entertainment: "bg-pink-100 text-pink-800",
   News: "bg-blue-100 text-blue-800",
   Culture: "bg-purple-100 text-purple-800",

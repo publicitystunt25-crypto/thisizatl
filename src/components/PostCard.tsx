@@ -7,7 +7,7 @@ export default function PostCard({ post }: { post: Post }) {
   return (
     <Link
       href={`/posts/${post.slug}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition-shadow hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
     >
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-100">
         {post.image_url ? (
@@ -26,7 +26,7 @@ export default function PostCard({ post }: { post: Post }) {
       </div>
       <div className="flex flex-1 flex-col p-4">
         <CategoryBadge category={post.category} />
-        <h3 className="font-display mt-2 text-lg font-semibold leading-snug text-zinc-900 group-hover:underline">
+        <h3 className="font-display mt-2 text-lg font-semibold leading-snug text-ink group-hover:text-brand-dark">
           {post.title}
         </h3>
         <p className="mt-2 line-clamp-2 flex-1 text-sm text-zinc-600">
