@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Image from "next/image";
 import { getPostBySlug } from "@/lib/db";
 import CategoryBadge from "@/components/CategoryBadge";
@@ -11,6 +12,44 @@ interface SourceCredit {
   title: string;
   url: string;
   source: string;
+}
+
+function excerpt(text: string, max = 160): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= max) return flat;
+  return flat.slice(0, max).replace(/\s+\S*$/, "") + "…";
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug);
+  if (!post) return {};
+
+  const description = excerpt(post.body);
+  const images = post.image_url
+    ? [{ url: post.image_url, width: 1200, height: 675, alt: post.title }]
+    : undefined;
+
+  return {
+    title: post.title,
+    description,
+    openGraph: {
+      type: "article",
+      title: post.title,
+      description,
+      images,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description,
+      images: post.image_url ? [post.image_url] : undefined,
+    },
+  };
 }
 
 export default async function PostPage({

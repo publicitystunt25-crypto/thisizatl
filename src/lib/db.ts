@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { cache } from "react";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -92,13 +93,16 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
   return res.rows;
 }
 
-export async function getPostBySlug(slug: string): Promise<Post | undefined> {
-  await ensureInit();
-  const res = await pool.query<Post>(`SELECT * FROM posts WHERE slug = $1`, [
-    slug,
-  ]);
-  return res.rows[0];
-}
+export const getPostBySlug = cache(
+  async (slug: string): Promise<Post | undefined> => {
+    await ensureInit();
+    const res = await pool.query<Post>(
+      `SELECT * FROM posts WHERE slug = $1`,
+      [slug]
+    );
+    return res.rows[0];
+  }
+);
 
 export async function getTodayPostCount(): Promise<number> {
   await ensureInit();

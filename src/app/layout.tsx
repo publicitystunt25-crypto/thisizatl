@@ -18,9 +18,31 @@ const fraunces = Fraunces({
   weight: ["500", "600", "700", "900"],
 });
 
+const SITE_URL = "https://thisizatl.onrender.com";
+const DESCRIPTION =
+  "Atlanta music and culture news, written and published automatically.";
+
 export const metadata: Metadata = {
-  title: "ThisIzATL",
-  description: "Atlanta music and culture news, written and published automatically.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "ThisIzATL",
+    template: "%s | ThisIzATL",
+  },
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "ThisIzATL",
+    title: "ThisIzATL",
+    description: DESCRIPTION,
+    url: SITE_URL,
+    images: [{ url: "/logo.png", width: 1200, height: 1200, alt: "ThisIzATL" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ThisIzATL",
+    description: DESCRIPTION,
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
