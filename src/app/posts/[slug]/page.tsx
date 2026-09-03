@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getPostBySlug } from "@/lib/db";
+import CategoryBadge from "@/components/CategoryBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,10 @@ export default async function PostPage({
           <span className="text-sm text-zinc-500 hover:underline">← Back to blog</span>
         </Link>
 
-        <h1 className="mt-4 text-2xl font-bold text-black">{post.title}</h1>
+        <div className="mt-4">
+          <CategoryBadge category={post.category} />
+        </div>
+        <h1 className="mt-2 text-2xl font-bold text-black">{post.title}</h1>
         <p className="mt-1 text-sm text-zinc-500">
           {new Date(post.created_at).toLocaleString()}
         </p>

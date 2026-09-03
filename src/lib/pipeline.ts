@@ -141,6 +141,7 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
         image_url: photo?.url ?? null,
         image_credit_name: photo?.credit_name ?? null,
         image_credit_url: photo?.credit_url ?? null,
+        category: generated.category,
       });
 
       recentTitles.push(generated.title);

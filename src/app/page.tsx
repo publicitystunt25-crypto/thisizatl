@@ -2,11 +2,20 @@ import Link from "next/link";
 import Image from "next/image";
 import { getAllPosts } from "@/lib/db";
 import GenerateButton from "@/components/GenerateButton";
+import CategoryBadge from "@/components/CategoryBadge";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  const posts = await getAllPosts();
+const CATEGORIES = ["Music", "News", "Culture", "Events"];
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const { category } = await searchParams;
+  const activeCategory = category && CATEGORIES.includes(category) ? category : undefined;
+  const posts = await getAllPosts(activeCategory);
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -22,10 +31,38 @@ export default async function Home() {
           <GenerateButton />
         </div>
 
-        <div className="space-y-6">
+        <nav className="mt-6 flex flex-wrap gap-2">
+          <Link
+            href="/"
+            className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+              !activeCategory
+                ? "bg-black text-white"
+                : "bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-400"
+            }`}
+          >
+            All
+          </Link>
+          {CATEGORIES.map((c) => (
+            <Link
+              key={c}
+              href={`/?category=${c}`}
+              className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                activeCategory === c
+                  ? "bg-black text-white"
+                  : "bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-400"
+              }`}
+            >
+              {c}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="mt-6 space-y-6">
           {posts.length === 0 && (
             <p className="text-zinc-500 text-sm">
-              No posts yet — click &ldquo;Run news pipeline now&rdquo; above.
+              {activeCategory
+                ? `No ${activeCategory} posts yet.`
+                : 'No posts yet — click "Run news pipeline now" above.'}
             </p>
           )}
           {posts.map((post) => (
@@ -44,7 +81,10 @@ export default async function Home() {
                 />
               )}
               <div>
-                <h2 className="text-lg font-semibold text-black">
+                <div className="flex items-center gap-2">
+                  <CategoryBadge category={post.category} />
+                </div>
+                <h2 className="mt-1 text-lg font-semibold text-black">
                   {post.title}
                 </h2>
                 <p className="mt-1 text-sm text-zinc-500">

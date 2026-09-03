@@ -32,6 +32,14 @@ the STORY'S TOPIC OR SETTING ONLY — e.g. "concert crowd night", "recording stu
 event in the query, since this will pull a generic stock photo, not a picture of the actual
 people or place involved.
 
+Also classify the post into exactly one category:
+- "Music": artists, albums, concerts, the music industry/business, music-scene profiles
+- "News": general local news (crime, politics, business, weather) that isn't music- or
+  culture-specific but is relevant to the Atlanta audience
+- "Culture": non-music arts and entertainment — film/TV, theater, visual art, food, nightlife
+- "Events": roundups or previews of upcoming happenings (weekend guides, festival previews,
+  convention coverage) rather than a report on something that already occurred
+
 Call the publish_article tool with your finished post. Do not respond with plain text.`;
 
 const PUBLISH_TOOL: Anthropic.Tool = {
@@ -59,6 +67,11 @@ const PUBLISH_TOOL: Anthropic.Tool = {
         description:
           "2-5 word generic stock-photo search phrase matching the story's topic/setting only, no real names.",
       },
+      category: {
+        type: "string",
+        enum: ["Music", "News", "Culture", "Events"],
+        description: "The single best-fit category for this post.",
+      },
     },
     required: [
       "title",
@@ -66,6 +79,7 @@ const PUBLISH_TOOL: Anthropic.Tool = {
       "similarity_risk",
       "similarity_note",
       "image_query",
+      "category",
     ],
   },
 };
@@ -77,12 +91,15 @@ export interface SourceInput {
   text: string;
 }
 
+export type Category = "Music" | "News" | "Culture" | "Events";
+
 export interface GeneratedArticle {
   title: string;
   body: string;
   similarity_risk: "low" | "medium" | "high";
   similarity_note: string;
   image_query: string;
+  category: Category;
 }
 
 export async function generateArticle(

@@ -27,6 +27,8 @@ function ensureInit(): Promise<void> {
         link TEXT PRIMARY KEY,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'News';
     `).then(() => undefined);
   }
   return initialized;
@@ -42,6 +44,7 @@ export interface Post {
   image_url: string | null;
   image_credit_name: string | null;
   image_credit_url: string | null;
+  category: string;
   created_at: string;
 }
 
@@ -54,11 +57,12 @@ export async function insertPost(post: {
   image_url: string | null;
   image_credit_name: string | null;
   image_credit_url: string | null;
+  category: string;
 }): Promise<void> {
   await ensureInit();
   await pool.query(
-    `INSERT INTO posts (slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    `INSERT INTO posts (slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, category)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [
       post.slug,
       post.title,
@@ -68,12 +72,20 @@ export async function insertPost(post: {
       post.image_url,
       post.image_credit_name,
       post.image_credit_url,
+      post.category,
     ]
   );
 }
 
-export async function getAllPosts(): Promise<Post[]> {
+export async function getAllPosts(category?: string): Promise<Post[]> {
   await ensureInit();
+  if (category) {
+    const res = await pool.query<Post>(
+      `SELECT * FROM posts WHERE category = $1 ORDER BY created_at DESC`,
+      [category]
+    );
+    return res.rows;
+  }
   const res = await pool.query<Post>(
     `SELECT * FROM posts ORDER BY created_at DESC`
   );
