@@ -1,8 +1,9 @@
 import { fetchAtlantaMusicFeed, FeedItem } from "./rss";
 import { resolveGoogleNewsLink, extractArticleText } from "./extract";
 import { generateArticle, SourceInput } from "./generate";
+import { checkDuplicate } from "./dedup";
 import { fetchStockPhoto } from "./image";
-import { hasSeenLink, markLinkSeen, insertPost } from "./db";
+import { hasSeenLink, markLinkSeen, insertPost, getRecentPostTitles } from "./db";
 
 const STOPWORDS = new Set([
   "the", "a", "an", "in", "on", "at", "of", "for", "to", "and", "or", "is",
@@ -69,6 +70,7 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
   }
 
   const clusters = clusterItems(unseen).slice(0, maxClusters);
+  const recentTitles = getRecentPostTitles(7);
 
   for (const cluster of clusters) {
     const primary = cluster[0];
@@ -93,6 +95,19 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
           status: "skipped",
           title: primary.title,
           detail: "Could not extract readable article text from any source in this cluster",
+        });
+        continue;
+      }
+
+      const dup = await checkDuplicate(
+        cluster.map((i) => i.title),
+        recentTitles
+      );
+      if (dup.is_duplicate) {
+        log.push({
+          status: "skipped",
+          title: primary.title,
+          detail: `Duplicate of already-published "${dup.duplicate_of}": ${dup.reason}`,
         });
         continue;
       }
@@ -126,6 +141,8 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
         image_credit_name: photo?.credit_name ?? null,
         image_credit_url: photo?.credit_url ?? null,
       });
+
+      recentTitles.push(generated.title);
 
       log.push({
         status: "published",

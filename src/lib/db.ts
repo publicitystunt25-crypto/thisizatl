@@ -70,6 +70,15 @@ export function getAllPosts(): Post[] {
     .all() as Post[];
 }
 
+export function getRecentPostTitles(days = 7): string[] {
+  const rows = db
+    .prepare(
+      `SELECT title FROM posts WHERE created_at >= datetime('now', ?) ORDER BY created_at DESC`
+    )
+    .all(`-${days} days`) as { title: string }[];
+  return rows.map((r) => r.title);
+}
+
 export function getPostBySlug(slug: string): Post | undefined {
   return db.prepare(`SELECT * FROM posts WHERE slug = ?`).get(slug) as
     | Post
