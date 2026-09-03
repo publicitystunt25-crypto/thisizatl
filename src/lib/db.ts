@@ -100,6 +100,14 @@ export async function getPostBySlug(slug: string): Promise<Post | undefined> {
   return res.rows[0];
 }
 
+export async function getTodayPostCount(): Promise<number> {
+  await ensureInit();
+  const res = await pool.query<{ count: string }>(
+    `SELECT COUNT(*) FROM posts WHERE created_at >= date_trunc('day', now())`
+  );
+  return parseInt(res.rows[0].count, 10);
+}
+
 export async function getRecentPostTitles(days = 7): Promise<string[]> {
   await ensureInit();
   const res = await pool.query<{ title: string }>(

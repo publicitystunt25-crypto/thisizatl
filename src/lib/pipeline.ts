@@ -3,7 +3,15 @@ import { resolveGoogleNewsLink, extractArticleText } from "./extract";
 import { generateArticle, SourceInput } from "./generate";
 import { checkDuplicate } from "./dedup";
 import { fetchStockPhoto } from "./image";
-import { hasSeenLink, markLinkSeen, insertPost, getRecentPostTitles } from "./db";
+import {
+  hasSeenLink,
+  markLinkSeen,
+  insertPost,
+  getRecentPostTitles,
+  getTodayPostCount,
+} from "./db";
+
+const DAILY_POST_LIMIT = 2;
 
 const STOPWORDS = new Set([
   "the", "a", "an", "in", "on", "at", "of", "for", "to", "and", "or", "is",
@@ -61,6 +69,18 @@ export interface PipelineLogEntry {
 
 export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> {
   const log: PipelineLogEntry[] = [];
+
+  const todayCount = await getTodayPostCount();
+  const remainingToday = DAILY_POST_LIMIT - todayCount;
+  if (remainingToday <= 0) {
+    log.push({
+      status: "skipped",
+      title: "-",
+      detail: `Daily limit of ${DAILY_POST_LIMIT} posts already reached (${todayCount} published today)`,
+    });
+    return log;
+  }
+
   const items = await fetchAtlantaMusicFeed();
   const seenFlags = await Promise.all(items.map((i) => hasSeenLink(i.link)));
   const unseen = items.filter((_, idx) => !seenFlags[idx]);
@@ -72,8 +92,17 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
 
   const clusters = clusterItems(unseen).slice(0, maxClusters);
   const recentTitles = await getRecentPostTitles(7);
+  let publishedCount = 0;
 
   for (const cluster of clusters) {
+    if (publishedCount >= remainingToday) {
+      log.push({
+        status: "skipped",
+        title: cluster[0].title,
+        detail: `Daily limit of ${DAILY_POST_LIMIT} posts reached for today`,
+      });
+      continue;
+    }
     const primary = cluster[0];
     try {
       const sources: SourceInput[] = [];
@@ -145,6 +174,7 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
       });
 
       recentTitles.push(generated.title);
+      publishedCount++;
 
       log.push({
         status: "published",
