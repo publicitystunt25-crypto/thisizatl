@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import GenerateButton from "./GenerateButton";
 
 const CATEGORIES = ["Music", "News", "Culture", "Events"];
 
@@ -19,7 +18,7 @@ export default function SiteHeader({
           </span>
         </Link>
 
-        <nav className="hidden flex-1 items-center gap-1 sm:flex">
+        <nav className="hidden items-center gap-1 sm:flex">
           <Link
             href="/"
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -44,10 +43,6 @@ export default function SiteHeader({
             </Link>
           ))}
         </nav>
-
-        <div className="ml-auto shrink-0">
-          <GenerateButton compact />
-        </div>
       </div>
 
       <nav className="flex items-center gap-1 overflow-x-auto px-4 pb-2 sm:hidden">
