@@ -1,28 +1,36 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { Pool } from "pg";
 
-const dbPath = path.join(process.cwd(), "data.sqlite");
-const db = new Database(dbPath);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS posts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    slug TEXT UNIQUE NOT NULL,
-    title TEXT NOT NULL,
-    body TEXT NOT NULL,
-    sources TEXT NOT NULL,
-    similarity_note TEXT,
-    image_url TEXT,
-    image_credit_name TEXT,
-    image_credit_url TEXT,
-    created_at TEXT NOT NULL
-  );
+let initialized: Promise<void> | null = null;
 
-  CREATE TABLE IF NOT EXISTS seen_links (
-    link TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL
-  );
-`);
+function ensureInit(): Promise<void> {
+  if (!initialized) {
+    initialized = pool.query(`
+      CREATE TABLE IF NOT EXISTS posts (
+        id SERIAL PRIMARY KEY,
+        slug TEXT UNIQUE NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        sources TEXT NOT NULL,
+        similarity_note TEXT,
+        image_url TEXT,
+        image_credit_name TEXT,
+        image_credit_url TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS seen_links (
+        link TEXT PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `).then(() => undefined);
+  }
+  return initialized;
+}
 
 export interface Post {
   id: number;
@@ -37,7 +45,7 @@ export interface Post {
   created_at: string;
 }
 
-export function insertPost(post: {
+export async function insertPost(post: {
   slug: string;
   title: string;
   body: string;
@@ -46,54 +54,63 @@ export function insertPost(post: {
   image_url: string | null;
   image_credit_name: string | null;
   image_credit_url: string | null;
-}) {
-  const stmt = db.prepare(
-    `INSERT INTO posts (slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, created_at)
-     VALUES (@slug, @title, @body, @sources, @similarity_note, @image_url, @image_credit_name, @image_credit_url, @created_at)`
+}): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `INSERT INTO posts (slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      post.slug,
+      post.title,
+      post.body,
+      JSON.stringify(post.sources),
+      post.similarity_note,
+      post.image_url,
+      post.image_credit_name,
+      post.image_credit_url,
+    ]
   );
-  stmt.run({
-    slug: post.slug,
-    title: post.title,
-    body: post.body,
-    sources: JSON.stringify(post.sources),
-    similarity_note: post.similarity_note,
-    image_url: post.image_url,
-    image_credit_name: post.image_credit_name,
-    image_credit_url: post.image_credit_url,
-    created_at: new Date().toISOString(),
-  });
 }
 
-export function getAllPosts(): Post[] {
-  return db
-    .prepare(`SELECT * FROM posts ORDER BY created_at DESC`)
-    .all() as Post[];
+export async function getAllPosts(): Promise<Post[]> {
+  await ensureInit();
+  const res = await pool.query<Post>(
+    `SELECT * FROM posts ORDER BY created_at DESC`
+  );
+  return res.rows;
 }
 
-export function getRecentPostTitles(days = 7): string[] {
-  const rows = db
-    .prepare(
-      `SELECT title FROM posts WHERE created_at >= datetime('now', ?) ORDER BY created_at DESC`
-    )
-    .all(`-${days} days`) as { title: string }[];
-  return rows.map((r) => r.title);
+export async function getPostBySlug(slug: string): Promise<Post | undefined> {
+  await ensureInit();
+  const res = await pool.query<Post>(`SELECT * FROM posts WHERE slug = $1`, [
+    slug,
+  ]);
+  return res.rows[0];
 }
 
-export function getPostBySlug(slug: string): Post | undefined {
-  return db.prepare(`SELECT * FROM posts WHERE slug = ?`).get(slug) as
-    | Post
-    | undefined;
+export async function getRecentPostTitles(days = 7): Promise<string[]> {
+  await ensureInit();
+  const res = await pool.query<{ title: string }>(
+    `SELECT title FROM posts WHERE created_at >= now() - ($1 || ' days')::interval ORDER BY created_at DESC`,
+    [days]
+  );
+  return res.rows.map((r) => r.title);
 }
 
-export function hasSeenLink(link: string): boolean {
-  const row = db.prepare(`SELECT 1 FROM seen_links WHERE link = ?`).get(link);
-  return !!row;
+export async function hasSeenLink(link: string): Promise<boolean> {
+  await ensureInit();
+  const res = await pool.query(`SELECT 1 FROM seen_links WHERE link = $1`, [
+    link,
+  ]);
+  return (res.rowCount ?? 0) > 0;
 }
 
-export function markLinkSeen(link: string) {
-  db.prepare(
-    `INSERT OR IGNORE INTO seen_links (link, created_at) VALUES (?, ?)`
-  ).run(link, new Date().toISOString());
+export async function markLinkSeen(link: string): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `INSERT INTO seen_links (link) VALUES ($1) ON CONFLICT (link) DO NOTHING`,
+    [link]
+  );
 }
 
-export default db;
+export default pool;

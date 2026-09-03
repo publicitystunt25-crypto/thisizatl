@@ -62,7 +62,8 @@ export interface PipelineLogEntry {
 export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> {
   const log: PipelineLogEntry[] = [];
   const items = await fetchAtlantaMusicFeed();
-  const unseen = items.filter((i) => !hasSeenLink(i.link));
+  const seenFlags = await Promise.all(items.map((i) => hasSeenLink(i.link)));
+  const unseen = items.filter((_, idx) => !seenFlags[idx]);
 
   if (unseen.length === 0) {
     log.push({ status: "skipped", title: "-", detail: "No new items in feed" });
@@ -70,7 +71,7 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
   }
 
   const clusters = clusterItems(unseen).slice(0, maxClusters);
-  const recentTitles = getRecentPostTitles(7);
+  const recentTitles = await getRecentPostTitles(7);
 
   for (const cluster of clusters) {
     const primary = cluster[0];
@@ -87,7 +88,7 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
             text: extracted.text,
           });
         }
-        markLinkSeen(item.link);
+        await markLinkSeen(item.link);
       }
 
       if (sources.length === 0) {
@@ -131,7 +132,7 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
 
       const photo = await fetchStockPhoto(generated.image_query);
 
-      insertPost({
+      await insertPost({
         slug: slugify(generated.title),
         title: generated.title,
         body: generated.body,

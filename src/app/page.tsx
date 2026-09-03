@@ -5,8 +5,8 @@ import GenerateButton from "@/components/GenerateButton";
 
 export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const posts = getAllPosts();
+export default async function Home() {
+  const posts = await getAllPosts();
 
   return (
     <div className="min-h-screen bg-zinc-50">
