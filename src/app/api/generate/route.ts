@@ -12,6 +12,7 @@ export async function POST() {
     const log = await runPipeline();
     return NextResponse.json({ log });
   } catch (err) {
+    console.error("Pipeline failed:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },
       { status: 500 }
