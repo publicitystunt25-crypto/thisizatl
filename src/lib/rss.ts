@@ -20,22 +20,33 @@ interface NewsApiResponse {
 
 const BASE_URL = "https://newsapi.org/v2/everything";
 
-// Real Atlanta outlets -- restricting to these (rather than trusting NewsAPI's
-// loose full-text keyword matching, which pulls in unrelated global stories
-// even for quoted phrases) is what actually guarantees local relevance.
-const ATLANTA_DOMAINS = [
+// Dedicated Atlanta/local outlets -- every story from these is inherently
+// Atlanta-relevant, so no extra filtering needed.
+const LOCAL_DOMAINS = [
   "ajc.com",
   "11alive.com",
   "atlantanewsfirst.com",
   "wsbtv.com",
   "fox5atlanta.com",
-  "rollingout.com",
   "creativeloafing.com",
   "atlantamagazine.com",
   "artsatl.org",
   "uatl.com",
   "saportareport.com",
+  "hotspotatl.com", // Hot 107.9
+  "majicatl.com", // Majic 107.5/97.5
+  "streetz945atl.com", // Streetz 94.5
 ].join(",");
+
+// National urban/celebrity outlets -- these cover far more than Atlanta, so
+// results are kept only when the story itself actually mentions Atlanta/ATL.
+const NATIONAL_URBAN_DOMAINS = [
+  "theshaderoom.com",
+  "bossip.com",
+  "balleralert.com",
+].join(",");
+
+const ATLANTA_MENTION = /\batl(anta)?\b/i;
 
 const MUSIC_KEYWORDS = [
   "music", "concert", "rapper", "rap", "musician", "album", "hip hop",
@@ -74,19 +85,34 @@ export async function fetchAtlantaMusicFeed(): Promise<FeedItem[]> {
     throw new Error("NEWSAPI_KEY is not set");
   }
 
-  const raw = await fetchQuery(
-    {
-      domains: ATLANTA_DOMAINS,
-      language: "en",
-      sortBy: "publishedAt",
-      pageSize: "100",
-    },
-    apiKey
+  const [localRaw, nationalRaw] = await Promise.all([
+    fetchQuery(
+      {
+        domains: LOCAL_DOMAINS,
+        language: "en",
+        sortBy: "publishedAt",
+        pageSize: "80",
+      },
+      apiKey
+    ),
+    fetchQuery(
+      {
+        domains: NATIONAL_URBAN_DOMAINS,
+        language: "en",
+        sortBy: "publishedAt",
+        pageSize: "50",
+      },
+      apiKey
+    ),
+  ]);
+
+  const nationalFiltered = nationalRaw.filter((item) =>
+    ATLANTA_MENTION.test(item.title)
   );
 
   const seen = new Set<string>();
   const deduped: FeedItem[] = [];
-  for (const item of raw) {
+  for (const item of [...localRaw, ...nationalFiltered]) {
     if (seen.has(item.link)) continue;
     seen.add(item.link);
     deduped.push(item);
