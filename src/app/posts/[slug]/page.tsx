@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import { getPostBySlug } from "@/lib/db";
 import CategoryBadge from "@/components/CategoryBadge";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
@@ -24,31 +25,34 @@ export default async function PostPage({
   const sources = JSON.parse(post.sources) as SourceCredit[];
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <main className="mx-auto max-w-2xl px-6 py-16">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <Image src="/logo.png" alt="ThisIzATL" width={36} height={36} />
-          <span className="text-sm text-zinc-500 hover:underline">← Back to blog</span>
-        </Link>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
 
-        <div className="mt-4">
-          <CategoryBadge category={post.category} />
-        </div>
-        <h1 className="mt-2 text-2xl font-bold text-black">{post.title}</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          {new Date(post.created_at).toLocaleString()}
+      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+        <CategoryBadge category={post.category} />
+        <h1 className="font-display mt-3 text-3xl font-bold leading-tight text-zinc-900 sm:text-4xl">
+          {post.title}
+        </h1>
+        <p className="mt-3 text-sm text-zinc-500">
+          {new Date(post.created_at).toLocaleString(undefined, {
+            dateStyle: "long",
+            timeStyle: "short",
+          })}
         </p>
 
         {post.image_url && (
-          <div className="mt-6">
-            <Image
-              src={post.image_url}
-              alt=""
-              width={800}
-              height={450}
-              className="w-full rounded-lg object-cover"
-            />
-            <p className="mt-1 text-xs text-zinc-400">
+          <div className="mt-8">
+            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-zinc-100">
+              <Image
+                src={post.image_url}
+                alt=""
+                fill
+                sizes="(min-width: 768px) 768px, 100vw"
+                priority
+                className="object-cover"
+              />
+            </div>
+            <p className="mt-2 text-xs text-zinc-400">
               Stock photo (not a photo of the actual people or event) —{" "}
               {post.image_credit_url ? (
                 <a
@@ -67,13 +71,13 @@ export default async function PostPage({
           </div>
         )}
 
-        <div className="mt-6 whitespace-pre-line text-zinc-800 leading-relaxed">
+        <div className="mt-8 whitespace-pre-line text-[17px] leading-relaxed text-zinc-800">
           {post.body}
         </div>
 
-        <div className="mt-8 rounded border border-zinc-200 bg-white p-4 text-sm">
-          <p className="font-medium text-zinc-700">Sources</p>
-          <ul className="mt-2 space-y-1">
+        <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-5 text-sm">
+          <p className="font-semibold text-zinc-700">Sources</p>
+          <ul className="mt-2 space-y-1.5">
             {sources.map((s, i) => (
               <li key={i}>
                 <a
@@ -90,12 +94,14 @@ export default async function PostPage({
         </div>
 
         {post.similarity_note && (
-          <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-medium">Automated similarity self-check</p>
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+            <p className="font-semibold">Automated similarity self-check</p>
             <p className="mt-1">{post.similarity_note}</p>
           </div>
         )}
       </main>
+
+      <SiteFooter />
     </div>
   );
 }
