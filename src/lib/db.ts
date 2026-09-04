@@ -213,6 +213,15 @@ export async function deletePostImageRow(id: number): Promise<void> {
   await pool.query(`DELETE FROM post_images WHERE id = $1`, [id]);
 }
 
+export async function clearPostImage(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `UPDATE posts SET image_data = NULL, image_mime = NULL, image_url = NULL,
+     image_credit_name = NULL, image_credit_url = NULL, image_credit = NULL WHERE id = $1`,
+    [id]
+  );
+}
+
 export async function getPostImage(
   id: number
 ): Promise<{ data: Buffer; mime: string } | undefined> {

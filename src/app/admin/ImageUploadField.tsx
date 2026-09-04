@@ -1,17 +1,24 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { deleteFeaturedImageAction } from "./actions";
 
 export default function ImageUploadField({
+  postId,
   currentImageUrl,
   currentCredit,
 }: {
+  postId?: number;
   currentImageUrl?: string | null;
   currentCredit?: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [removed, setRemoved] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -20,11 +27,21 @@ export default function ImageUploadField({
       setFileName(null);
       return;
     }
+    setRemoved(false);
     setFileName(file.name);
     setPreview(URL.createObjectURL(file));
   }
 
-  const displayImage = preview || currentImageUrl;
+  function handleDelete() {
+    if (!postId) return;
+    setRemoved(true);
+    startTransition(async () => {
+      await deleteFeaturedImageAction(postId);
+      router.refresh();
+    });
+  }
+
+  const displayImage = preview || (!removed ? currentImageUrl : null);
 
   return (
     <div>
@@ -33,12 +50,25 @@ export default function ImageUploadField({
       </label>
 
       {displayImage && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={displayImage}
-          alt=""
-          className="mt-2 h-32 w-auto rounded-lg border border-zinc-200 object-cover"
-        />
+        <div className="relative mt-2 inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={displayImage}
+            alt=""
+            className="h-32 w-auto rounded-lg border border-zinc-200 object-cover"
+          />
+          {postId && !preview && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isPending}
+              aria-label="Remove photo"
+              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-xs text-white hover:bg-black disabled:opacity-50"
+            >
+              ×
+            </button>
+          )}
+        </div>
       )}
 
       <input

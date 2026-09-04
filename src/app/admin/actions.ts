@@ -16,6 +16,8 @@ import {
   setPostImage,
   getPostById,
   addPostImages,
+  deletePostImageRow,
+  clearPostImage,
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
@@ -169,4 +171,21 @@ export async function deletePostAction(id: number): Promise<void> {
   await deletePost(id);
   revalidatePath("/");
   revalidatePath("/admin");
+}
+
+export async function deleteGalleryImageAction(
+  imageId: number,
+  postId: number
+): Promise<void> {
+  await requireAdmin();
+  await deletePostImageRow(imageId);
+  revalidatePath(`/admin/${postId}/edit`);
+  revalidatePath("/");
+}
+
+export async function deleteFeaturedImageAction(postId: number): Promise<void> {
+  await requireAdmin();
+  await clearPostImage(postId);
+  revalidatePath(`/admin/${postId}/edit`);
+  revalidatePath("/");
 }

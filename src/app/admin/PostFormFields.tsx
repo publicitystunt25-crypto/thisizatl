@@ -17,6 +17,7 @@ function toDatetimeLocalValue(iso?: string | null): string {
 }
 
 export default function PostFormFields({
+  postId,
   defaultTitle = "",
   defaultBody = "",
   defaultCategory = "Music",
@@ -26,6 +27,7 @@ export default function PostFormFields({
   currentImageCredit,
   existingGalleryImages = [],
 }: {
+  postId?: number;
   defaultTitle?: string;
   defaultBody?: string;
   defaultCategory?: string;
@@ -115,11 +117,12 @@ export default function PostFormFields({
       </div>
 
       <ImageUploadField
+        postId={postId}
         currentImageUrl={currentImageUrl}
         currentCredit={currentImageCredit}
       />
 
-      <GalleryUploader existingImages={existingGalleryImages} />
+      <GalleryUploader postId={postId} existingImages={existingGalleryImages} />
     </>
   );
 }

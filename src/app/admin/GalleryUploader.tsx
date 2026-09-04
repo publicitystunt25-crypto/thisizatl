@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { deleteGalleryImageAction } from "./actions";
 
 interface ExistingImage {
   id: number;
@@ -9,17 +11,35 @@ interface ExistingImage {
 }
 
 export default function GalleryUploader({
+  postId,
   existingImages = [],
 }: {
+  postId?: number;
   existingImages?: ExistingImage[];
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [removedIds, setRemovedIds] = useState<number[]>([]);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     setPreviews(files.map((f) => URL.createObjectURL(f)));
   }
+
+  function handleDelete(imageId: number) {
+    if (!postId) return;
+    setRemovedIds((prev) => [...prev, imageId]);
+    startTransition(async () => {
+      await deleteGalleryImageAction(imageId, postId);
+      router.refresh();
+    });
+  }
+
+  const visibleImages = existingImages.filter(
+    (img) => !removedIds.includes(img.id)
+  );
 
   return (
     <div>
@@ -31,16 +51,25 @@ export default function GalleryUploader({
         credit.
       </p>
 
-      {existingImages.length > 0 && (
+      {visibleImages.length > 0 && (
         <div className="mt-3 grid grid-cols-3 gap-2">
-          {existingImages.map((img) => (
-            <div key={img.id}>
+          {visibleImages.map((img) => (
+            <div key={img.id} className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={img.url}
                 alt=""
                 className="h-20 w-full rounded-lg border border-zinc-200 object-cover"
               />
+              <button
+                type="button"
+                onClick={() => handleDelete(img.id)}
+                disabled={isPending}
+                aria-label="Remove photo"
+                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-xs text-white hover:bg-black disabled:opacity-50"
+              >
+                ×
+              </button>
               {img.credit && (
                 <p className="mt-0.5 truncate text-xs text-zinc-400">
                   {img.credit}

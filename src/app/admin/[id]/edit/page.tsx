@@ -32,6 +32,7 @@ export default async function EditPostPage({
       <main className="mx-auto max-w-2xl px-6 py-8">
         <form action={updateWithId} className="space-y-5">
           <PostFormFields
+            postId={post.id}
             defaultTitle={post.title}
             defaultBody={post.body}
             defaultCategory={post.category}
