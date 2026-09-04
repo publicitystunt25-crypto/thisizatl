@@ -4,7 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "What ThisIzATL is and how it works.",
+  description: "The pulse of Atlanta music, entertainment, and culture.",
 };
 
 export default function AboutPage() {
@@ -19,46 +19,29 @@ export default function AboutPage() {
 
         <div className="mt-6 space-y-5 text-[17px] leading-relaxed text-zinc-800">
           <p>
-            ThisIzATL covers Atlanta music, entertainment, and local news —
-            written and published automatically. We pull from Atlanta&rsquo;s
-            own outlets and a curated set of national outlets that regularly
-            cover the city, and use Claude (Anthropic&rsquo;s AI) to turn the
-            facts of each story into a short, original write-up.
+            Atlanta doesn&rsquo;t follow the culture — it builds it. From the
+            studios in the West End to the stages at State Farm Arena, this
+            city has shaped the sound of a generation, and ThisIzATL is here
+            to cover every bit of it.
           </p>
 
-          <h2 className="font-display text-xl font-bold text-ink">
-            How it works
-          </h2>
           <p>
-            Several times a day, our system checks a set of Atlanta-focused
-            news sources for new stories. For each one, Claude extracts the
-            underlying facts and writes an independent summary in its own
-            words — never a copy-paste or a close paraphrase of the original
-            reporting. Before publishing, it also runs a duplicate check
-            against everything we&rsquo;ve already posted, so the same story
-            from multiple outlets doesn&rsquo;t show up twice.
+            We&rsquo;re your source for the music, the moves, and the moments
+            that matter in the A — new drops from the artists putting on for
+            the city, the industry news shaping where hip-hop and R&amp;B go
+            next, the entertainment stories everyone&rsquo;s talking about,
+            and the events worth showing up for. Concerts, culture, comebacks,
+            controversy — if it&rsquo;s moving in Atlanta, it&rsquo;s moving
+            through here.
           </p>
 
-          <h2 className="font-display text-xl font-bold text-ink">
-            Sourcing &amp; credit
-          </h2>
           <p>
-            Every post on ThisIzATL links back to the original outlet(s) it
-            was based on, visible at the bottom of the article. If you&rsquo;re
-            one of those outlets and have a concern about how your reporting
-            was used, please{" "}
-            <a href="/contact" className="text-brand-dark hover:underline">
-              reach out
-            </a>{" "}
-            — we take that seriously.
+            This isn&rsquo;t just news about Atlanta. It&rsquo;s Atlanta,
+            told the way Atlanta tells it.
           </p>
 
-          <h2 className="font-display text-xl font-bold text-ink">Photos</h2>
-          <p>
-            Article photos are stock images sourced from Pexels, chosen to
-            match the story&rsquo;s topic — they are not photos of the actual
-            people or events described, and each is credited to its
-            photographer.
+          <p className="font-display text-xl font-bold text-ink">
+            ThisIz<span className="text-brand">ATL</span>.
           </p>
         </div>
       </main>
