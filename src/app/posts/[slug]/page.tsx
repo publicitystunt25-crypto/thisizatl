@@ -73,6 +73,7 @@ export default async function PostPage({
           {post.title}
         </h1>
         <p className="mt-3 text-sm text-zinc-500">
+          {post.author && <>By {post.author} · </>}
           {new Date(post.created_at).toLocaleString(undefined, {
             dateStyle: "long",
             timeStyle: "short",
@@ -91,22 +92,24 @@ export default async function PostPage({
                 className="object-cover"
               />
             </div>
-            <p className="mt-2 text-xs text-zinc-400">
-              Photo by{" "}
-              {post.image_credit_url ? (
-                <a
-                  href={post.image_credit_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
-                >
-                  {post.image_credit_name}
-                </a>
-              ) : (
-                post.image_credit_name
-              )}{" "}
-              via Pexels
-            </p>
+            {post.image_credit_name && (
+              <p className="mt-2 text-xs text-zinc-400">
+                Photo by{" "}
+                {post.image_credit_url ? (
+                  <a
+                    href={post.image_credit_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {post.image_credit_name}
+                  </a>
+                ) : (
+                  post.image_credit_name
+                )}{" "}
+                via Pexels
+              </p>
+            )}
           </div>
         )}
 
@@ -114,23 +117,25 @@ export default async function PostPage({
           {post.body}
         </div>
 
-        <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-5 text-sm">
-          <p className="font-semibold text-ink">Sources</p>
-          <ul className="mt-2 space-y-1.5">
-            {sources.map((s, i) => (
-              <li key={i}>
-                <a
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand-dark hover:underline"
-                >
-                  {s.source}: {s.title}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {sources.length > 0 && (
+          <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-5 text-sm">
+            <p className="font-semibold text-ink">Sources</p>
+            <ul className="mt-2 space-y-1.5">
+              {sources.map((s, i) => (
+                <li key={i}>
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-dark hover:underline"
+                  >
+                    {s.source}: {s.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </main>
 
       <SiteFooter />

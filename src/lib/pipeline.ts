@@ -10,6 +10,7 @@ import {
   getRecentPostTitles,
   getTodayPostCount,
 } from "./db";
+import { slugify } from "./slug";
 
 const DAILY_POST_LIMIT = 2;
 
@@ -46,19 +47,6 @@ function clusterItems(items: FeedItem[]): FeedItem[][] {
     }
   }
   return clusters.map((c) => c.items);
-}
-
-function slugify(title: string): string {
-  return (
-    title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .slice(0, 80) +
-    "-" +
-    Date.now().toString(36)
-  );
 }
 
 export interface PipelineLogEntry {
