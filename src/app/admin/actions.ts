@@ -15,6 +15,7 @@ import {
   deletePost,
   setPostImage,
   getPostById,
+  addPostImages,
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
@@ -59,19 +60,46 @@ function readPostFields(formData: FormData) {
   return { title, body, category, status: status as "draft" | "published" };
 }
 
-async function saveImageIfPresent(postId: number, formData: FormData) {
+function readImageCredit(formData: FormData): string | null {
+  const raw = String(formData.get("image_credit") || "").trim();
+  return raw || null;
+}
+
+async function saveImageIfPresent(
+  postId: number,
+  formData: FormData,
+  credit: string | null
+) {
   const file = formData.get("image");
   if (!(file instanceof File) || file.size === 0) return;
   if (!file.type.startsWith("image/")) {
     throw new Error("Uploaded file is not an image");
   }
   const buffer = Buffer.from(await file.arrayBuffer());
-  await setPostImage(postId, buffer, file.type, `/api/uploads/${postId}`);
+  await setPostImage(postId, buffer, file.type, `/api/uploads/${postId}`, credit);
+}
+
+async function saveGalleryIfPresent(postId: number, formData: FormData) {
+  const files = formData.getAll("gallery").filter((f) => f instanceof File && f.size > 0) as File[];
+  if (files.length === 0) return;
+
+  const images: { data: Buffer; mime: string; credit: string | null }[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Uploaded gallery file is not an image");
+    }
+    const credit = String(formData.get(`gallery_credit_${i}`) || "").trim() || null;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    images.push({ data: buffer, mime: file.type, credit });
+  }
+  await addPostImages(postId, images);
 }
 
 export async function createPostAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const fields = readPostFields(formData);
+  const credit = readImageCredit(formData);
 
   const id = await insertPost({
     slug: slugify(fields.title),
@@ -87,7 +115,8 @@ export async function createPostAction(formData: FormData): Promise<void> {
     author: "ThisIzATL Staff",
   });
 
-  await saveImageIfPresent(id, formData);
+  await saveImageIfPresent(id, formData, credit);
+  await saveGalleryIfPresent(id, formData);
 
   revalidatePath("/");
   revalidatePath("/admin");
@@ -103,6 +132,7 @@ export async function updatePostAction(
   if (!existing) throw new Error("Post not found");
 
   const fields = readPostFields(formData);
+  const credit = readImageCredit(formData);
 
   await updatePost(id, {
     slug: existing.slug,
@@ -110,9 +140,11 @@ export async function updatePostAction(
     body: fields.body,
     category: fields.category,
     status: fields.status,
+    image_credit: credit,
   });
 
-  await saveImageIfPresent(id, formData);
+  await saveImageIfPresent(id, formData, credit);
+  await saveGalleryIfPresent(id, formData);
 
   revalidatePath("/");
   revalidatePath("/admin");

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Image from "next/image";
-import { getPostBySlug } from "@/lib/db";
+import { getPostBySlug, getPostImages } from "@/lib/db";
 import CategoryBadge from "@/components/CategoryBadge";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -62,6 +62,7 @@ export default async function PostPage({
   if (!post) notFound();
 
   const sources = JSON.parse(post.sources) as SourceCredit[];
+  const galleryImages = await getPostImages(post.id);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -92,7 +93,7 @@ export default async function PostPage({
                 className="object-cover"
               />
             </div>
-            {post.image_credit_name && (
+            {post.image_credit_name ? (
               <p className="mt-2 text-xs text-zinc-400">
                 Photo by{" "}
                 {post.image_credit_url ? (
@@ -109,6 +110,10 @@ export default async function PostPage({
                 )}{" "}
                 via Pexels
               </p>
+            ) : (
+              post.image_credit && (
+                <p className="mt-2 text-xs text-zinc-400">{post.image_credit}</p>
+              )
             )}
           </div>
         )}
@@ -116,6 +121,27 @@ export default async function PostPage({
         <div className="mt-8 whitespace-pre-line text-[17px] leading-relaxed text-zinc-800">
           {post.body}
         </div>
+
+        {galleryImages.length > 0 && (
+          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {galleryImages.map((img) => (
+              <div key={img.id}>
+                <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-zinc-100">
+                  <Image
+                    src={`/api/gallery/${img.id}`}
+                    alt=""
+                    fill
+                    sizes="(min-width: 640px) 33vw, 50vw"
+                    className="object-cover"
+                  />
+                </div>
+                {img.credit && (
+                  <p className="mt-1 text-xs text-zinc-400">{img.credit}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {sources.length > 0 && (
           <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-5 text-sm">

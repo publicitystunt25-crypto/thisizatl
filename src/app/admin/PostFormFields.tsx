@@ -1,5 +1,12 @@
 import { CATEGORIES } from "@/lib/categories";
 import ImageUploadField from "./ImageUploadField";
+import GalleryUploader from "./GalleryUploader";
+
+interface ExistingGalleryImage {
+  id: number;
+  url: string;
+  credit: string | null;
+}
 
 export default function PostFormFields({
   defaultTitle = "",
@@ -7,12 +14,16 @@ export default function PostFormFields({
   defaultCategory = "Music",
   defaultStatus = "draft",
   currentImageUrl,
+  currentImageCredit,
+  existingGalleryImages = [],
 }: {
   defaultTitle?: string;
   defaultBody?: string;
   defaultCategory?: string;
   defaultStatus?: "draft" | "published";
   currentImageUrl?: string | null;
+  currentImageCredit?: string | null;
+  existingGalleryImages?: ExistingGalleryImage[];
 }) {
   return (
     <>
@@ -78,7 +89,12 @@ export default function PostFormFields({
         </div>
       </div>
 
-      <ImageUploadField currentImageUrl={currentImageUrl} />
+      <ImageUploadField
+        currentImageUrl={currentImageUrl}
+        currentCredit={currentImageCredit}
+      />
+
+      <GalleryUploader existingImages={existingGalleryImages} />
     </>
   );
 }

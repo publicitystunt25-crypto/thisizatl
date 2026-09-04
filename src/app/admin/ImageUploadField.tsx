@@ -4,8 +4,10 @@ import { useRef, useState } from "react";
 
 export default function ImageUploadField({
   currentImageUrl,
+  currentCredit,
 }: {
   currentImageUrl?: string | null;
+  currentCredit?: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -78,6 +80,14 @@ export default function ImageUploadField({
           <span className="truncate text-sm text-zinc-500">{fileName}</span>
         )}
       </div>
+
+      <input
+        type="text"
+        name="image_credit"
+        defaultValue={currentCredit ?? ""}
+        placeholder="Photo credit (optional)"
+        className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+      />
     </div>
   );
 }

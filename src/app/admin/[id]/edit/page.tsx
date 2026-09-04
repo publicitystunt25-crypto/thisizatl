@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPostById } from "@/lib/db";
+import { getPostById, getPostImages } from "@/lib/db";
 import { updatePostAction } from "../../actions";
 import PostFormFields from "../../PostFormFields";
 
@@ -13,6 +13,7 @@ export default async function EditPostPage({
   const post = await getPostById(Number(id));
   if (!post) notFound();
 
+  const galleryImages = await getPostImages(post.id);
   const updateWithId = updatePostAction.bind(null, post.id);
 
   return (
@@ -36,6 +37,12 @@ export default async function EditPostPage({
             defaultCategory={post.category}
             defaultStatus={post.status}
             currentImageUrl={post.image_url}
+            currentImageCredit={post.image_credit}
+            existingGalleryImages={galleryImages.map((img) => ({
+              id: img.id,
+              url: `/api/gallery/${img.id}`,
+              credit: img.credit,
+            }))}
           />
           <button
             type="submit"
