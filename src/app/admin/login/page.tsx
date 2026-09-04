@@ -4,9 +4,9 @@ import { loginAction } from "../actions";
 export default async function AdminLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; from?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
-  const { error, from } = await searchParams;
+  const { error } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-cream px-6">
@@ -18,12 +18,9 @@ export default async function AdminLoginPage({
             <span className="text-brand">ATL</span>
           </span>
         </div>
-        <h1 className="mt-6 text-lg font-semibold text-ink">
-          This site is private
-        </h1>
+        <h1 className="mt-6 text-lg font-semibold text-ink">Admin sign in</h1>
 
         <form action={loginAction} className="mt-4 space-y-3">
-          {from && <input type="hidden" name="from" value={from} />}
           <input
             type="password"
             name="password"

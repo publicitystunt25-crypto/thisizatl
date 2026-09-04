@@ -20,19 +20,11 @@ import {
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 
-function safeRedirectTarget(from: string | null): string {
-  if (from && from.startsWith("/") && !from.startsWith("//")) return from;
-  return "/";
-}
-
 export async function loginAction(formData: FormData): Promise<void> {
   const password = String(formData.get("password") || "");
-  const from = String(formData.get("from") || "") || null;
   const ok = await checkPassword(password);
   if (!ok) {
-    const params = new URLSearchParams({ error: "1" });
-    if (from) params.set("from", from);
-    redirect(`/admin/login?${params.toString()}`);
+    redirect("/admin/login?error=1");
   }
 
   const store = await cookies();
@@ -44,7 +36,7 @@ export async function loginAction(formData: FormData): Promise<void> {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  redirect(safeRedirectTarget(from));
+  redirect("/admin");
 }
 
 export async function logoutAction(): Promise<void> {
