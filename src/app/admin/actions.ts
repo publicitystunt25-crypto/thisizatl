@@ -18,6 +18,8 @@ import {
   addPostImages,
   deletePostImageRow,
   clearPostImage,
+  setFeaturedPost,
+  unsetFeaturedPost,
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
@@ -188,4 +190,18 @@ export async function deleteFeaturedImageAction(postId: number): Promise<void> {
   await clearPostImage(postId);
   revalidatePath(`/admin/${postId}/edit`);
   revalidatePath("/");
+}
+
+export async function setFeaturedPostAction(id: number): Promise<void> {
+  await requireAdmin();
+  await setFeaturedPost(id);
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function unsetFeaturedPostAction(id: number): Promise<void> {
+  await requireAdmin();
+  await unsetFeaturedPost(id);
+  revalidatePath("/");
+  revalidatePath("/admin");
 }

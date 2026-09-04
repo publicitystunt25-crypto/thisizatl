@@ -1,7 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getAllPostsAdmin } from "@/lib/db";
-import { logoutAction, deletePostAction } from "./actions";
+import {
+  logoutAction,
+  deletePostAction,
+  setFeaturedPostAction,
+  unsetFeaturedPostAction,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +54,11 @@ export default async function AdminDashboard() {
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
+                  {post.is_featured && (
+                    <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                      ★ Featured
+                    </span>
+                  )}
                   {post.status === "draft" && (
                     <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
                       Draft
@@ -86,6 +96,36 @@ export default async function AdminDashboard() {
                 >
                   Edit
                 </Link>
+                {post.status === "published" &&
+                  (post.is_featured ? (
+                    <form
+                      action={async () => {
+                        "use server";
+                        await unsetFeaturedPostAction(post.id);
+                      }}
+                    >
+                      <button
+                        type="submit"
+                        className="text-zinc-500 hover:underline"
+                      >
+                        Unfeature
+                      </button>
+                    </form>
+                  ) : (
+                    <form
+                      action={async () => {
+                        "use server";
+                        await setFeaturedPostAction(post.id);
+                      }}
+                    >
+                      <button
+                        type="submit"
+                        className="text-zinc-500 hover:underline"
+                      >
+                        Feature
+                      </button>
+                    </form>
+                  ))}
                 <form
                   action={async () => {
                     "use server";

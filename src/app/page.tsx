@@ -10,6 +10,9 @@ import PostCard from "@/components/PostCard";
 export const dynamic = "force-dynamic";
 
 function pickFeatured(posts: Post[]): [Post | undefined, Post[]] {
+  const pinned = posts.find((p) => p.is_featured);
+  if (pinned) return [pinned, posts.filter((p) => p !== pinned)];
+
   for (const category of FEATURED_PRIORITY) {
     const match = posts.find((p) => p.category === category);
     if (match) return [match, posts.filter((p) => p !== match)];

@@ -35,6 +35,7 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_mime TEXT;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS author TEXT;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_credit TEXT;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT false;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -65,6 +66,7 @@ export interface Post {
   status: "draft" | "published";
   author: string | null;
   created_at: string;
+  is_featured: boolean;
 }
 
 export interface PostImage {
@@ -240,18 +242,29 @@ export async function deletePost(id: number): Promise<void> {
   await pool.query(`DELETE FROM posts WHERE id = $1`, [id]);
 }
 
+export async function setFeaturedPost(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE posts SET is_featured = false WHERE id != $1`, [id]);
+  await pool.query(`UPDATE posts SET is_featured = true WHERE id = $1`, [id]);
+}
+
+export async function unsetFeaturedPost(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE posts SET is_featured = false WHERE id = $1`, [id]);
+}
+
 export async function getAllPosts(category?: string): Promise<Post[]> {
   await ensureInit();
   if (category) {
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
        FROM posts WHERE category = $1 AND status = 'published' ORDER BY created_at DESC`,
       [category]
     );
     return res.rows;
   }
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
      FROM posts WHERE status = 'published' ORDER BY created_at DESC`
   );
   return res.rows;
@@ -260,7 +273,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -269,7 +282,7 @@ export async function getAllPostsAdmin(): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
      FROM posts WHERE id = $1`,
     [id]
   );
@@ -280,7 +293,7 @@ export const getPostBySlug = cache(
   async (slug: string): Promise<Post | undefined> => {
     await ensureInit();
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
        FROM posts WHERE slug = $1 AND status = 'published'`,
       [slug]
     );
