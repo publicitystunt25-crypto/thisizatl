@@ -131,13 +131,6 @@ export default async function PostPage({
             ))}
           </ul>
         </div>
-
-        {post.similarity_note && (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-            <p className="font-semibold">Automated similarity self-check</p>
-            <p className="mt-1">{post.similarity_note}</p>
-          </div>
-        )}
       </main>
 
       <SiteFooter />
