@@ -36,6 +36,7 @@ export default async function EditPostPage({
             defaultBody={post.body}
             defaultCategory={post.category}
             defaultStatus={post.status}
+            defaultCreatedAt={post.created_at}
             currentImageUrl={post.image_url}
             currentImageCredit={post.image_credit}
             existingGalleryImages={galleryImages.map((img) => ({

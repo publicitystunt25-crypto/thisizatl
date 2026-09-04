@@ -85,11 +85,12 @@ export async function insertPost(post: {
   category: string;
   status?: "draft" | "published";
   author?: string | null;
+  created_at?: string | null;
 }): Promise<number> {
   await ensureInit();
   const res = await pool.query<{ id: number }>(
-    `INSERT INTO posts (slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, category, status, author)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `INSERT INTO posts (slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, category, status, author, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, now()))
      RETURNING id`,
     [
       post.slug,
@@ -103,6 +104,7 @@ export async function insertPost(post: {
       post.category,
       post.status ?? "published",
       post.author ?? null,
+      post.created_at ?? null,
     ]
   );
   return res.rows[0].id;
@@ -118,6 +120,7 @@ export async function updatePost(
     status: "draft" | "published";
     image_url?: string | null;
     image_credit?: string | null;
+    created_at?: string | null;
   }
 ): Promise<void> {
   await ensureInit();
@@ -133,6 +136,12 @@ export async function updatePost(
        WHERE id = $6`,
       [post.slug, post.title, post.body, post.category, post.status, id]
     );
+  }
+  if (post.created_at) {
+    await pool.query(`UPDATE posts SET created_at = $1 WHERE id = $2`, [
+      post.created_at,
+      id,
+    ]);
   }
   if (post.image_credit !== undefined) {
     await pool.query(`UPDATE posts SET image_credit = $1 WHERE id = $2`, [

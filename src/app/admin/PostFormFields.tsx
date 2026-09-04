@@ -8,11 +8,20 @@ interface ExistingGalleryImage {
   credit: string | null;
 }
 
+function toDatetimeLocalValue(iso?: string | null): string {
+  const d = iso ? new Date(iso) : new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
 export default function PostFormFields({
   defaultTitle = "",
   defaultBody = "",
   defaultCategory = "Music",
   defaultStatus = "draft",
+  defaultCreatedAt,
   currentImageUrl,
   currentImageCredit,
   existingGalleryImages = [],
@@ -21,6 +30,7 @@ export default function PostFormFields({
   defaultBody?: string;
   defaultCategory?: string;
   defaultStatus?: "draft" | "published";
+  defaultCreatedAt?: string | null;
   currentImageUrl?: string | null;
   currentImageCredit?: string | null;
   existingGalleryImages?: ExistingGalleryImage[];
@@ -87,6 +97,21 @@ export default function PostFormFields({
             <option value="published">Published</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-zinc-700">
+          Published Date
+        </label>
+        <input
+          type="datetime-local"
+          name="created_at"
+          defaultValue={toDatetimeLocalValue(defaultCreatedAt)}
+          className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+        />
+        <p className="mt-1 text-xs text-zinc-400">
+          Controls where this post sorts and the date shown to readers.
+        </p>
       </div>
 
       <ImageUploadField

@@ -65,6 +65,14 @@ function readImageCredit(formData: FormData): string | null {
   return raw || null;
 }
 
+function readCreatedAt(formData: FormData): string | null {
+  const raw = String(formData.get("created_at") || "").trim();
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 async function saveImageIfPresent(
   postId: number,
   formData: FormData,
@@ -100,6 +108,7 @@ export async function createPostAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const fields = readPostFields(formData);
   const credit = readImageCredit(formData);
+  const createdAt = readCreatedAt(formData);
 
   const id = await insertPost({
     slug: slugify(fields.title),
@@ -113,6 +122,7 @@ export async function createPostAction(formData: FormData): Promise<void> {
     category: fields.category,
     status: fields.status,
     author: "ThisIzATL Staff",
+    created_at: createdAt,
   });
 
   await saveImageIfPresent(id, formData, credit);
@@ -133,6 +143,7 @@ export async function updatePostAction(
 
   const fields = readPostFields(formData);
   const credit = readImageCredit(formData);
+  const createdAt = readCreatedAt(formData);
 
   await updatePost(id, {
     slug: existing.slug,
@@ -141,6 +152,7 @@ export async function updatePostAction(
     category: fields.category,
     status: fields.status,
     image_credit: credit,
+    created_at: createdAt,
   });
 
   await saveImageIfPresent(id, formData, credit);
