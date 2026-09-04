@@ -1,4 +1,5 @@
 import { CATEGORIES } from "@/lib/categories";
+import ImageUploadField from "./ImageUploadField";
 
 export default function PostFormFields({
   defaultTitle = "",
@@ -77,25 +78,7 @@ export default function PostFormFields({
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-zinc-700">
-          Photo {currentImageUrl && "(replace)"}
-        </label>
-        {currentImageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={currentImageUrl}
-            alt=""
-            className="mt-2 h-32 w-auto rounded-lg object-cover"
-          />
-        )}
-        <input
-          type="file"
-          name="image"
-          accept="image/*"
-          className="mt-1 w-full text-sm"
-        />
-      </div>
+      <ImageUploadField currentImageUrl={currentImageUrl} />
     </>
   );
 }
