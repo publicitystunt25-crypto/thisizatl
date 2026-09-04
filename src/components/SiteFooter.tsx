@@ -28,8 +28,8 @@ export default function SiteFooter() {
         </nav>
 
         <p className="max-w-xs text-xs text-zinc-500">
-          Atlanta music and culture news, written and published automatically
-          by Claude. Every post credits and links its original source(s).
+          Atlanta music, entertainment, and culture news. Every post credits
+          and links its original source(s).
         </p>
       </div>
     </footer>
