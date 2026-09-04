@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE, expectedSessionToken } from "@/lib/auth";
 
+const PUBLIC_PATHS = ["/admin/login", "/api/generate"];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/admin/login") {
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
   }
 
@@ -13,6 +15,7 @@ export async function middleware(request: NextRequest) {
 
   if (cookie !== expected) {
     const loginUrl = new URL("/admin/login", request.url);
+    loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -20,5 +23,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|logo\\.png|icon\\.png).*)",
+  ],
 };
