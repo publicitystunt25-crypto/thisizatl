@@ -12,7 +12,14 @@ import {
 } from "./db";
 import { slugify } from "./slug";
 
-const DAILY_POST_LIMIT = 2;
+// Temporary bump to 6 posts/day for 2026-09-04 and 2026-09-05, then back to
+// the normal 2/day cap automatically -- no manual revert needed.
+const BOOSTED_DATES = new Set(["2026-09-04", "2026-09-05"]);
+
+function dailyPostLimit(): number {
+  const today = new Date().toISOString().slice(0, 10);
+  return BOOSTED_DATES.has(today) ? 6 : 2;
+}
 
 const STOPWORDS = new Set([
   "the", "a", "an", "in", "on", "at", "of", "for", "to", "and", "or", "is",
@@ -55,16 +62,17 @@ export interface PipelineLogEntry {
   detail: string;
 }
 
-export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> {
+export async function runPipeline(maxClusters = 6): Promise<PipelineLogEntry[]> {
   const log: PipelineLogEntry[] = [];
 
+  const dailyLimit = dailyPostLimit();
   const todayCount = await getTodayPostCount();
-  const remainingToday = DAILY_POST_LIMIT - todayCount;
+  const remainingToday = dailyLimit - todayCount;
   if (remainingToday <= 0) {
     log.push({
       status: "skipped",
       title: "-",
-      detail: `Daily limit of ${DAILY_POST_LIMIT} posts already reached (${todayCount} published today)`,
+      detail: `Daily limit of ${dailyLimit} posts already reached (${todayCount} published today)`,
     });
     return log;
   }
@@ -87,7 +95,7 @@ export async function runPipeline(maxClusters = 5): Promise<PipelineLogEntry[]> 
       log.push({
         status: "skipped",
         title: cluster[0].title,
-        detail: `Daily limit of ${DAILY_POST_LIMIT} posts reached for today`,
+        detail: `Daily limit of ${dailyLimit} posts reached for today`,
       });
       continue;
     }
