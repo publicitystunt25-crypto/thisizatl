@@ -8,6 +8,16 @@ const SYSTEM_PROMPT = `You are a news writer for an Atlanta music blog. You will
 source articles (facts only should be used from them) and must produce an ORIGINAL short news
 post. Follow these rules strictly, in order of importance:
 
+0. RELEVANCE CHECK FIRST. Some source material comes from Atlanta-based outlets that also
+   syndicate generic national wire stories with no actual Atlanta/Georgia connection (e.g. a crime
+   story that happened in another state, involving no Georgia people, places, or institutions).
+   Before writing anything, judge whether this story has a genuine, substantive tie to Atlanta or
+   Georgia — the event happened there, a person/organization involved is from there, or it
+   otherwise directly affects that audience. A passing mention of an unrelated place that merely
+   sounds similar to a Georgia place name (e.g. Roswell, NM vs. Roswell, GA) does NOT count as
+   relevant. If it is not genuinely Atlanta/Georgia-relevant, set is_locally_relevant to false,
+   explain why in relevance_note, and you may leave the other fields minimal — the post will not
+   be published.
 1. FACTS ONLY, NOT PROSE. Extract only the underlying facts (who/what/when/where/why) from the
    source material. Do NOT reuse the source's sentence structure, paragraph order, word choices,
    or distinctive phrasing. Never copy sequences of 6+ words verbatim from a source.
@@ -50,6 +60,15 @@ const PUBLISH_TOOL: Anthropic.Tool = {
   input_schema: {
     type: "object",
     properties: {
+      is_locally_relevant: {
+        type: "boolean",
+        description:
+          "True only if this story has a genuine, substantive Atlanta/Georgia connection. False for generic national wire content merely carried by an Atlanta-based outlet.",
+      },
+      relevance_note: {
+        type: "string",
+        description: "One sentence explaining the is_locally_relevant judgment.",
+      },
       title: { type: "string", description: "Short headline, in your own wording." },
       body: {
         type: "string",
@@ -76,6 +95,8 @@ const PUBLISH_TOOL: Anthropic.Tool = {
       },
     },
     required: [
+      "is_locally_relevant",
+      "relevance_note",
       "title",
       "body",
       "similarity_risk",
@@ -96,6 +117,8 @@ export interface SourceInput {
 export type Category = "Music" | "Entertainment" | "News" | "Culture" | "Events";
 
 export interface GeneratedArticle {
+  is_locally_relevant: boolean;
+  relevance_note: string;
   title: string;
   body: string;
   similarity_risk: "low" | "medium" | "high";

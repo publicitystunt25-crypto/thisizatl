@@ -140,6 +140,15 @@ export async function runPipeline(maxClusters = 6): Promise<PipelineLogEntry[]> 
 
       const generated = await generateArticle(sources);
 
+      if (!generated.is_locally_relevant) {
+        log.push({
+          status: "skipped",
+          title: primary.title,
+          detail: `Not Atlanta/Georgia-relevant: ${generated.relevance_note}`,
+        });
+        continue;
+      }
+
       if (!generated.title || !generated.body) {
         log.push({
           status: "skipped",
