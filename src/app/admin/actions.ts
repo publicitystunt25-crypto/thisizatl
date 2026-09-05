@@ -24,6 +24,23 @@ import {
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 import { shareNewPost } from "@/lib/social";
+import sharp from "sharp";
+
+// Phone/camera uploads can come in at 4000px+ wide and several MB -- the site
+// never displays them larger than ~1600px, so storing (and re-serving) the
+// original just makes every page load fetch multi-megabyte blobs from the
+// database for no visual benefit. Downscale and recompress at upload time.
+async function processImageUpload(
+  buffer: Buffer,
+  maxWidth: number
+): Promise<{ buffer: Buffer; mime: string }> {
+  const resized = await sharp(buffer)
+    .rotate()
+    .resize({ width: maxWidth, withoutEnlargement: true })
+    .jpeg({ quality: 82, mozjpeg: true })
+    .toBuffer();
+  return { buffer: resized, mime: "image/jpeg" };
+}
 
 export async function loginAction(formData: FormData): Promise<void> {
   const password = String(formData.get("password") || "");
@@ -88,8 +105,9 @@ async function saveImageIfPresent(
   if (!file.type.startsWith("image/")) {
     throw new Error("Uploaded file is not an image");
   }
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await setPostImage(postId, buffer, file.type, `/api/uploads/${postId}`, credit);
+  const raw = Buffer.from(await file.arrayBuffer());
+  const { buffer, mime } = await processImageUpload(raw, 1600);
+  await setPostImage(postId, buffer, mime, `/api/uploads/${postId}`, credit);
 }
 
 async function saveGalleryIfPresent(postId: number, formData: FormData) {
@@ -103,8 +121,9 @@ async function saveGalleryIfPresent(postId: number, formData: FormData) {
       throw new Error("Uploaded gallery file is not an image");
     }
     const credit = String(formData.get(`gallery_credit_${i}`) || "").trim() || null;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    images.push({ data: buffer, mime: file.type, credit });
+    const raw = Buffer.from(await file.arrayBuffer());
+    const { buffer, mime } = await processImageUpload(raw, 1200);
+    images.push({ data: buffer, mime, credit });
   }
   await addPostImages(postId, images);
 }
