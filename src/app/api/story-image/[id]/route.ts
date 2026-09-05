@@ -97,7 +97,7 @@ export async function GET(
       </defs>
       <rect x="0" y="${HEIGHT - gradientHeight}" width="${WIDTH}" height="${gradientHeight}" fill="url(#fade)" />
       ${headlineSvg}
-      <text x="64" y="${ctaY}" font-family="Arial, sans-serif" font-weight="700" font-size="34" fill="#ff7a45">Read full story on thisizatl.com</text>
+      <text x="64" y="${ctaY}" font-family="Arial, sans-serif" font-weight="700" font-size="34" fill="#ff7a45">Read full story on ThisIzATL.com</text>
     </svg>
   `;
 
