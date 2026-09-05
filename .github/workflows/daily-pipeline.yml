@@ -2,8 +2,12 @@ name: Run news pipeline
 
 on:
   schedule:
-    # 12:00 and 20:00 UTC (roughly 8am and 4pm US Eastern)
-    - cron: "0 12,20 * * *"
+    # 12pm US Eastern, once a day. GitHub Actions cron is UTC-only and can't
+    # follow DST automatically, so this uses two schedules split by month to
+    # approximate the switch (exact DST changeover date varies by a few days
+    # each year, so there's a small drift right at the edges of March/November).
+    - cron: "0 16 * 3-10 *" # 12pm EDT (UTC-4), roughly mid-March to early November
+    - cron: "0 17 * 11-12,1-2 *" # 12pm EST (UTC-5), roughly November to mid-March
   workflow_dispatch: {}
 
 jobs:
