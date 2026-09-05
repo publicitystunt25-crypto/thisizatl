@@ -109,6 +109,7 @@ export async function GET(
   return new NextResponse(new Uint8Array(composited), {
     headers: {
       "Content-Type": "image/jpeg",
+      "Content-Length": String(composited.length),
       "Cache-Control": "public, max-age=3600",
     },
   });
