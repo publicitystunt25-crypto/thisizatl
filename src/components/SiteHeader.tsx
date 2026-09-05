@@ -29,7 +29,7 @@ export default function SiteHeader({
 
         <Link
           href="/"
-          className="font-display justify-self-center bg-gradient-to-r from-brand-red via-brand to-brand-red bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl"
+          className="font-display justify-self-center bg-gradient-to-r from-brand-red via-brand to-brand-red bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-5xl"
         >
           ThisIzATL
         </Link>
