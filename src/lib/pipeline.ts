@@ -13,13 +13,10 @@ import {
 } from "./db";
 import { slugify } from "./slug";
 
-// Temporary bump to 6 posts/day for 2026-09-04 and 2026-09-05, then back to
-// the normal 2/day cap automatically -- no manual revert needed.
-const BOOSTED_DATES = new Set(["2026-09-04", "2026-09-05"]);
+const DAILY_POST_LIMIT = 4;
 
 function dailyPostLimit(): number {
-  const today = new Date().toISOString().slice(0, 10);
-  return BOOSTED_DATES.has(today) ? 6 : 2;
+  return DAILY_POST_LIMIT;
 }
 
 const STOPWORDS = new Set([
