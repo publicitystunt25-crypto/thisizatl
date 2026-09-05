@@ -23,6 +23,7 @@ import {
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
+import { shareNewPost } from "@/lib/social";
 
 export async function loginAction(formData: FormData): Promise<void> {
   const password = String(formData.get("password") || "");
@@ -132,6 +133,13 @@ export async function createPostAction(formData: FormData): Promise<void> {
   await saveImageIfPresent(id, formData, credit);
   await saveGalleryIfPresent(id, formData);
 
+  if (fields.status === "published") {
+    const post = await getPostById(id);
+    if (post) {
+      await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+    }
+  }
+
   revalidatePath("/");
   revalidatePath("/admin");
   redirect("/admin");
@@ -161,6 +169,13 @@ export async function updatePostAction(
 
   await saveImageIfPresent(id, formData, credit);
   await saveGalleryIfPresent(id, formData);
+
+  if (existing.status === "draft" && fields.status === "published") {
+    const post = await getPostById(id);
+    if (post) {
+      await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+    }
+  }
 
   revalidatePath("/");
   revalidatePath("/admin");

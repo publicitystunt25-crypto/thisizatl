@@ -3,6 +3,7 @@ import { resolveGoogleNewsLink, extractArticleText } from "./extract";
 import { generateArticle, SourceInput } from "./generate";
 import { checkDuplicate } from "./dedup";
 import { fetchStockPhoto } from "./image";
+import { shareNewPost } from "./social";
 import {
   hasSeenLink,
   markLinkSeen,
@@ -165,9 +166,10 @@ export async function runPipeline(maxClusters = 6): Promise<PipelineLogEntry[]> 
       }));
 
       const photo = await fetchStockPhoto(generated.image_query);
+      const slug = slugify(generated.title);
 
-      await insertPost({
-        slug: slugify(generated.title),
+      const newId = await insertPost({
+        slug,
         title: generated.title,
         body: generated.body,
         sources: sourceCredits,
@@ -177,6 +179,8 @@ export async function runPipeline(maxClusters = 6): Promise<PipelineLogEntry[]> 
         image_credit_url: photo?.credit_url ?? null,
         category: generated.category,
       });
+
+      await shareNewPost({ id: newId, title: generated.title, slug, image_url: photo?.url ?? null });
 
       recentTitles.push(generated.title);
       publishedCount++;
