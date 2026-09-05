@@ -112,7 +112,7 @@ export default async function PostPage({
               </p>
             ) : (
               post.image_credit && (
-                <p className="mt-2 text-xs text-zinc-400">{post.image_credit}</p>
+                <p className="mt-2 text-xs text-zinc-400">Photo by {post.image_credit}</p>
               )
             )}
           </div>
@@ -136,7 +136,7 @@ export default async function PostPage({
                   />
                 </div>
                 {img.credit && (
-                  <p className="mt-1 text-xs text-zinc-400">{img.credit}</p>
+                  <p className="mt-1 text-xs text-zinc-400">Photo by {img.credit}</p>
                 )}
               </div>
             ))}
