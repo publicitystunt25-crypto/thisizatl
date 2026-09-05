@@ -9,19 +9,15 @@ const LINKS = [
 
 export default function SiteFooter() {
   return (
-    <footer className="mt-16 border-t border-zinc-200 bg-cream-100">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-10 text-center sm:flex-row sm:justify-between sm:text-left">
-        <div className="flex items-center gap-2">
-          <Image src="/logo.png" alt="ThisIzATL" width={28} height={28} />
-          <span className="font-display text-sm font-bold">
-            <span className="text-ink">ThisIz</span>
-            <span className="text-brand">ATL</span>
-          </span>
-        </div>
+    <footer className="mt-16 bg-ink">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-10 text-center">
+        <Link href="/">
+          <Image src="/logo.png" alt="ThisIzATL" width={90} height={90} />
+        </Link>
 
-        <nav className="flex items-center gap-4 text-sm font-medium text-zinc-600">
+        <nav className="flex items-center gap-4 text-sm font-medium text-zinc-300">
           {LINKS.map((l) => (
-            <Link key={l.href} href={l.href} className="hover:text-brand-dark">
+            <Link key={l.href} href={l.href} className="hover:text-brand">
               {l.label}
             </Link>
           ))}
