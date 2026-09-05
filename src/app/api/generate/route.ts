@@ -9,7 +9,9 @@ export async function POST() {
     );
   }
   try {
-    const log = await runPipeline();
+    // Each scheduled trigger publishes at most 1 article -- the daily total
+    // (4) comes from running 4 times a day, not from one run publishing many.
+    const log = await runPipeline(1);
     return NextResponse.json({ log });
   } catch (err) {
     console.error("Pipeline failed:", err);
