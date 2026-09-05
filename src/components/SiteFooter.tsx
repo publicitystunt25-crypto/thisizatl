@@ -5,6 +5,7 @@ const LINKS = [
   { href: "/about", label: "About" },
   { href: "/advertise", label: "Advertise" },
   { href: "/contact", label: "Contact" },
+  { href: "/terms", label: "Terms" },
 ];
 
 export default function SiteFooter() {
