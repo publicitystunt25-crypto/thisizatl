@@ -1,4 +1,4 @@
-export const CATEGORIES = ["Music", "Entertainment", "News", "Culture", "Events"] as const;
+export const CATEGORIES = ["Music", "Entertainment", "News", "Culture", "Events", "Sports", "Fashion"] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 

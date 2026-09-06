@@ -46,8 +46,13 @@ Also classify the post into exactly one category:
 - "Music": artists, albums, concerts, the music industry/business, music-scene profiles
 - "Entertainment": celebrity news, TV/film, general entertainment-industry stories that are
   NOT specifically about music (e.g. an actor, a TV show, a celebrity's personal life)
+- "Sports": Atlanta-area teams (Falcons, Hawks, Braves, United, Dream, Georgia Tech, local
+  college programs, etc.), athletes from or playing in Atlanta/Georgia, and sports
+  organizations/venues based there
+- "Fashion": designers, brands, boutiques, fashion weeks/shows, streetwear culture, or stylists
+  that are Atlanta-based or connected to Atlanta people/institutions
 - "News": general local news (crime, politics, business, weather) that isn't music-,
-  entertainment-, or culture-specific but is relevant to the Atlanta audience
+  entertainment-, culture-, sports-, or fashion-specific but is relevant to the Atlanta audience
 - "Culture": non-celebrity arts and culture — visual art, theater, food, nightlife, museums
 - "Events": roundups or previews of upcoming happenings (weekend guides, festival previews,
   convention coverage) rather than a report on something that already occurred
@@ -90,7 +95,7 @@ const PUBLISH_TOOL: Anthropic.Tool = {
       },
       category: {
         type: "string",
-        enum: ["Music", "Entertainment", "News", "Culture", "Events"],
+        enum: ["Music", "Entertainment", "Sports", "Fashion", "News", "Culture", "Events"],
         description: "The single best-fit category for this post.",
       },
     },
@@ -114,7 +119,7 @@ export interface SourceInput {
   text: string;
 }
 
-export type Category = "Music" | "Entertainment" | "News" | "Culture" | "Events";
+export type Category = "Music" | "Entertainment" | "Sports" | "Fashion" | "News" | "Culture" | "Events";
 
 export interface GeneratedArticle {
   is_locally_relevant: boolean;

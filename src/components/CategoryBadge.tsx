@@ -4,6 +4,8 @@ const COLORS: Record<string, string> = {
   News: "bg-blue-100 text-blue-800",
   Culture: "bg-purple-100 text-purple-800",
   Events: "bg-green-100 text-green-800",
+  Sports: "bg-amber-100 text-amber-800",
+  Fashion: "bg-rose-100 text-rose-800",
 };
 
 export default function CategoryBadge({ category }: { category: string }) {
