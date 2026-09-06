@@ -1,3 +1,21 @@
+import sharp from "sharp";
+
+// Phone/camera uploads can come in at 4000px+ wide and several MB -- the site
+// never displays them larger than ~1600px, so storing (and re-serving) the
+// original just makes every page load fetch multi-megabyte blobs from the
+// database for no visual benefit. Downscale and recompress at upload time.
+export async function processImageUpload(
+  buffer: Buffer,
+  maxWidth: number
+): Promise<{ buffer: Buffer; mime: string }> {
+  const resized = await sharp(buffer)
+    .rotate()
+    .resize({ width: maxWidth, withoutEnlargement: true })
+    .jpeg({ quality: 82, mozjpeg: true })
+    .toBuffer();
+  return { buffer: resized, mime: "image/jpeg" };
+}
+
 export interface StockPhoto {
   url: string;
   credit_name: string;

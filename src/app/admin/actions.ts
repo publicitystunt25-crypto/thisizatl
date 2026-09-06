@@ -24,23 +24,7 @@ import {
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 import { shareNewPost } from "@/lib/social";
-import sharp from "sharp";
-
-// Phone/camera uploads can come in at 4000px+ wide and several MB -- the site
-// never displays them larger than ~1600px, so storing (and re-serving) the
-// original just makes every page load fetch multi-megabyte blobs from the
-// database for no visual benefit. Downscale and recompress at upload time.
-async function processImageUpload(
-  buffer: Buffer,
-  maxWidth: number
-): Promise<{ buffer: Buffer; mime: string }> {
-  const resized = await sharp(buffer)
-    .rotate()
-    .resize({ width: maxWidth, withoutEnlargement: true })
-    .jpeg({ quality: 82, mozjpeg: true })
-    .toBuffer();
-  return { buffer: resized, mime: "image/jpeg" };
-}
+import { processImageUpload } from "@/lib/image";
 
 export async function loginAction(formData: FormData): Promise<void> {
   const password = String(formData.get("password") || "");
@@ -236,6 +220,25 @@ export async function setFeaturedPostAction(id: number): Promise<void> {
 export async function unsetFeaturedPostAction(id: number): Promise<void> {
   await requireAdmin();
   await unsetFeaturedPost(id);
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function approvePostAction(id: number): Promise<void> {
+  await requireAdmin();
+  const post = await getPostById(id);
+  if (!post) throw new Error("Post not found");
+
+  await updatePost(id, {
+    slug: post.slug,
+    title: post.title,
+    body: post.body,
+    category: post.category,
+    status: "published",
+  });
+
+  await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+
   revalidatePath("/");
   revalidatePath("/admin");
 }
