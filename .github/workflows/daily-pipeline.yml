@@ -1,18 +1,10 @@
 name: Run news pipeline
 
+# Scheduling moved to cron-job.org (a dedicated, reliable scheduler) after
+# GitHub Actions' own cron repeatedly failed to fire at all on some days --
+# see git history for details. This workflow is kept only as a manual
+# "run it right now" trigger from the Actions tab.
 on:
-  schedule:
-    # Runs every hour from ~7am-7pm Eastern (covers both EST and EDT without
-    # needing a DST split). Each run publishes at most 1 article and the
-    # pipeline's own daily cap (4/day) stops it once that's reached, so this
-    # is intentionally over-scheduled: GitHub's cron is UTC-only and its own
-    # docs admit scheduled runs can be delayed or silently dropped under load
-    # (this repo had entire days where every single scheduled trigger for
-    # that day never fired, even offset off the hour). Running hourly instead
-    # of at 4 fixed times means a handful of dropped runs no longer means a
-    # missed day -- there are enough chances left in the window to still hit
-    # the daily total.
-    - cron: "17 12-23 * * *"
   workflow_dispatch: {}
 
 jobs:
