@@ -2,17 +2,17 @@ name: Run news pipeline
 
 on:
   schedule:
-    # ~9am, 12pm, 3pm, 6pm US Eastern -- one article published per run, four
-    # runs a day. GitHub Actions cron is UTC-only and can't follow DST
-    # automatically, so this uses two schedules split by month to approximate
-    # the switch (exact DST changeover date varies by a few days each year,
-    # so there's a small drift right at the edges of March/November).
-    # Offset to :07 past the hour, not :00 -- GitHub's own docs warn that
-    # schedules on the hour hit peak load and are more likely to be delayed
-    # or silently dropped (this happened: the 9am run on 2026-09-06 never
-    # fired at all).
-    - cron: "7 13,16,19,22 * 3-10 *" # ~9am/12pm/3pm/6pm EDT (UTC-4), roughly mid-March to early November
-    - cron: "7 14,17,20,23 * 11-12,1-2 *" # ~9am/12pm/3pm/6pm EST (UTC-5), roughly November to mid-March
+    # Runs every hour from ~7am-7pm Eastern (covers both EST and EDT without
+    # needing a DST split). Each run publishes at most 1 article and the
+    # pipeline's own daily cap (4/day) stops it once that's reached, so this
+    # is intentionally over-scheduled: GitHub's cron is UTC-only and its own
+    # docs admit scheduled runs can be delayed or silently dropped under load
+    # (this repo had entire days where every single scheduled trigger for
+    # that day never fired, even offset off the hour). Running hourly instead
+    # of at 4 fixed times means a handful of dropped runs no longer means a
+    # missed day -- there are enough chances left in the window to still hit
+    # the daily total.
+    - cron: "17 12-23 * * *"
   workflow_dispatch: {}
 
 jobs:
