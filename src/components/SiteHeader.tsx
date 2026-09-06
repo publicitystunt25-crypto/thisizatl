@@ -77,6 +77,12 @@ export default function SiteHeader({
               {c}
             </Link>
           ))}
+          <Link
+            href="/submit"
+            className="ml-2 rounded-full bg-ink px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand"
+          >
+            Submit
+          </Link>
         </nav>
       </div>
 
@@ -100,6 +106,12 @@ export default function SiteHeader({
             {c}
           </Link>
         ))}
+        <Link
+          href="/submit"
+          className="ml-1 shrink-0 rounded-full bg-ink px-3 py-1.5 text-sm font-medium text-white"
+        >
+          Submit
+        </Link>
       </nav>
     </header>
   );
