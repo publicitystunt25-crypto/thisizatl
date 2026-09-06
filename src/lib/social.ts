@@ -7,6 +7,24 @@ export interface SocialPost {
   title: string;
   slug: string;
   image_url: string | null;
+  // Instagram @handle (no @, no URL) to tag/mention in the Story, e.g. for
+  // artist-submitted spotlights -- tagged accounts must be public.
+  instagramHandle?: string | null;
+}
+
+// Pulls the @handle out of a full Instagram profile URL
+// ("https://instagram.com/handle" / "https://www.instagram.com/handle/?x=1"
+// -> "handle"). Returns null if it doesn't look like an Instagram URL.
+export function extractInstagramHandle(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (!/(^|\.)instagram\.com$/.test(parsed.hostname)) return null;
+    const handle = parsed.pathname.split("/").filter(Boolean)[0];
+    return handle || null;
+  } catch {
+    return null;
+  }
 }
 
 async function postToFacebookPage(post: SocialPost): Promise<void> {
@@ -40,14 +58,21 @@ async function postToInstagramStory(post: SocialPost): Promise<void> {
   // burned into the image, since Instagram's API doesn't support link stickers.
   const imageUrl = `${SITE_URL}/api/story-image/${post.id}`;
 
+  const body: Record<string, unknown> = {
+    image_url: imageUrl,
+    media_type: "STORIES",
+    access_token: token,
+  };
+  // Tagged accounts must be public, or Instagram silently drops the tag
+  // rather than erroring -- this is a best-effort mention, not guaranteed.
+  if (post.instagramHandle) {
+    body.user_tags = [{ username: post.instagramHandle }];
+  }
+
   const createRes = await fetch(`${GRAPH_BASE}/${igUserId}/media`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      image_url: imageUrl,
-      media_type: "STORIES",
-      access_token: token,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!createRes.ok) {

@@ -23,7 +23,7 @@ import {
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
-import { shareNewPost } from "@/lib/social";
+import { shareNewPost, extractInstagramHandle } from "@/lib/social";
 import { processImageUpload } from "@/lib/image";
 
 export async function loginAction(formData: FormData): Promise<void> {
@@ -237,7 +237,23 @@ export async function approvePostAction(id: number): Promise<void> {
     status: "published",
   });
 
-  await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+  let instagramHandle: string | null = null;
+  try {
+    const sources = JSON.parse(post.sources) as { source: string; url: string }[];
+    const igSource = sources.find((s) => s.source === "Instagram");
+    instagramHandle = extractInstagramHandle(igSource?.url);
+  } catch {
+    // sources isn't valid JSON or doesn't include an Instagram entry -- fine,
+    // just means no tag gets attached.
+  }
+
+  await shareNewPost({
+    id: post.id,
+    title: post.title,
+    slug: post.slug,
+    image_url: post.image_url,
+    instagramHandle,
+  });
 
   revalidatePath("/");
   revalidatePath("/admin");
