@@ -309,6 +309,26 @@ export async function getTodayPostCount(): Promise<number> {
   return parseInt(res.rows[0].count, 10);
 }
 
+// Guards the artist submission form against duplicate spam from someone
+// hitting back/reload and resubmitting a fresh page (a client-side "disable
+// the button while submitting" fix can't catch that, since it's a brand new
+// page load with its own button). image_credit holds the submitted artist
+// name for these posts.
+export async function hasRecentSubmissionByArtist(
+  artistName: string,
+  withinMinutes = 10
+): Promise<boolean> {
+  await ensureInit();
+  const res = await pool.query(
+    `SELECT 1 FROM posts
+     WHERE image_credit = $1
+       AND created_at >= now() - ($2 || ' minutes')::interval
+     LIMIT 1`,
+    [artistName, withinMinutes]
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
 export async function getRecentPostTitles(days = 7): Promise<string[]> {
   await ensureInit();
   const res = await pool.query<{ title: string }>(

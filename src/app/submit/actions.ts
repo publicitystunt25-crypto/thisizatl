@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { insertPost, setPostImage } from "@/lib/db";
+import { insertPost, setPostImage, hasRecentSubmissionByArtist } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { processImageUpload } from "@/lib/image";
 import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
@@ -38,6 +38,15 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   }
   if (!photo.type.startsWith("image/")) {
     throw new Error("Uploaded file is not an image");
+  }
+
+  // Guards against someone hitting back/reload and resubmitting a fresh page
+  // -- a disabled submit button can't catch that since it's a brand new page
+  // load. If this artist already has a submission from the last 10 minutes,
+  // treat this as a duplicate: skip the Claude call and DB insert entirely,
+  // but still show the normal "thanks" confirmation so it doesn't look broken.
+  if (await hasRecentSubmissionByArtist(submission.artistName)) {
+    redirect("/submit/thanks");
   }
 
   const article = await generateSpotlightArticle(submission);
