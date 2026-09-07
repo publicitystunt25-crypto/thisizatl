@@ -2,7 +2,6 @@ const COLORS: Record<string, string> = {
   Music: "bg-brand/15 text-brand-dark",
   Entertainment: "bg-pink-100 text-pink-800",
   News: "bg-blue-100 text-blue-800",
-  Culture: "bg-purple-100 text-purple-800",
   Events: "bg-green-100 text-green-800",
   Sports: "bg-amber-100 text-amber-800",
   Fashion: "bg-rose-100 text-rose-800",

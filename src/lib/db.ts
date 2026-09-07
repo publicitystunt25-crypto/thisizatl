@@ -39,6 +39,7 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_width INTEGER;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_height INTEGER;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS social_shared BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -66,13 +67,14 @@ export interface Post {
   image_credit_url: string | null;
   image_credit: string | null;
   category: string;
-  status: "draft" | "published";
+  status: "draft" | "published" | "scheduled";
   author: string | null;
   created_at: string;
   is_featured: boolean;
   image_width: number | null;
   image_height: number | null;
   social_shared: boolean;
+  scheduled_for: string | null;
 }
 
 export interface PostImage {
@@ -193,6 +195,47 @@ export async function setSocialShared(id: number, shared: boolean): Promise<void
   await pool.query(`UPDATE posts SET social_shared = $1 WHERE id = $2`, [shared, id]);
 }
 
+export async function schedulePost(id: number, scheduledFor: string): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `UPDATE posts SET status = 'scheduled', scheduled_for = $1 WHERE id = $2`,
+    [scheduledFor, id]
+  );
+}
+
+export async function cancelSchedule(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `UPDATE posts SET status = 'draft', scheduled_for = NULL WHERE id = $1`,
+    [id]
+  );
+}
+
+export async function clearSchedule(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE posts SET scheduled_for = NULL WHERE id = $1`, [id]);
+}
+
+// Picked up by the hourly pipeline trigger -- scheduled posts go live within
+// about an hour of their target time, not to the minute, since publishing
+// piggybacks on the existing cron ping rather than its own timer.
+export async function getDueScheduledPosts(): Promise<Post[]> {
+  await ensureInit();
+  const res = await pool.query<Post>(
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for
+     FROM posts WHERE status = 'scheduled' AND scheduled_for <= now()`
+  );
+  return res.rows;
+}
+
+export async function markPublishedFromSchedule(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `UPDATE posts SET status = 'published', scheduled_for = NULL WHERE id = $1`,
+    [id]
+  );
+}
+
 export async function addPostImages(
   postId: number,
   images: { data: Buffer; mime: string; credit: string | null }[]
@@ -282,14 +325,14 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
   await ensureInit();
   if (category) {
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for
        FROM posts WHERE category = $1 AND status = 'published' ORDER BY created_at DESC`,
       [category]
     );
     return res.rows;
   }
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for
      FROM posts WHERE status = 'published' ORDER BY created_at DESC`
   );
   return res.rows;
@@ -298,7 +341,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -307,7 +350,7 @@ export async function getAllPostsAdmin(): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for
      FROM posts WHERE id = $1`,
     [id]
   );
@@ -318,7 +361,7 @@ export const getPostBySlug = cache(
   async (slug: string): Promise<Post | undefined> => {
     await ensureInit();
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for
        FROM posts WHERE slug = $1 AND status = 'published'`,
       [slug]
     );

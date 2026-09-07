@@ -3,7 +3,7 @@ import { resolveGoogleNewsLink, extractArticleText } from "./extract";
 import { generateArticle, SourceInput } from "./generate";
 import { checkDuplicate } from "./dedup";
 import { fetchStockPhoto } from "./image";
-import { shareNewPost } from "./social";
+import { shareNewPost, extractInstagramHandle } from "./social";
 import {
   hasSeenLink,
   markLinkSeen,
@@ -11,6 +11,8 @@ import {
   getRecentPostTitles,
   getTodayPostCount,
   setSocialShared,
+  getDueScheduledPosts,
+  markPublishedFromSchedule,
 } from "./db";
 import { slugify } from "./slug";
 
@@ -201,4 +203,39 @@ export async function runPipeline(maxClusters = 6): Promise<PipelineLogEntry[]> 
   }
 
   return log;
+}
+
+// Called on every hourly pipeline trigger, before generating new articles --
+// publishes any admin-scheduled post whose time has arrived. Since this only
+// runs on the hourly cron tick, a post goes live within about an hour of its
+// scheduled time, not to the minute.
+export async function publishDueScheduledPosts(): Promise<{ id: number; title: string }[]> {
+  const due = await getDueScheduledPosts();
+  const published: { id: number; title: string }[] = [];
+
+  for (const post of due) {
+    await markPublishedFromSchedule(post.id);
+
+    let instagramHandle: string | null = null;
+    try {
+      const sources = JSON.parse(post.sources) as { source: string; url: string }[];
+      const igSource = sources.find((s) => s.source === "Instagram");
+      instagramHandle = extractInstagramHandle(igSource?.url);
+    } catch {
+      // sources isn't valid JSON or doesn't include an Instagram entry -- fine.
+    }
+
+    const shared = await shareNewPost({
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      image_url: post.image_url,
+      instagramHandle,
+    });
+    await setSocialShared(post.id, shared);
+
+    published.push({ id: post.id, title: post.title });
+  }
+
+  return published;
 }

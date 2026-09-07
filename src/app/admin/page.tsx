@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getAllPostsAdmin, type Post } from "@/lib/db";
-import { formatShortDateTime } from "@/lib/date";
+import { formatShortDateTime, formatDateTime, toEasternDatetimeLocalValue } from "@/lib/date";
 import {
   logoutAction,
   deletePostAction,
@@ -9,6 +9,8 @@ import {
   unsetFeaturedPostAction,
   approvePostAction,
   retrySocialShareAction,
+  schedulePostAction,
+  cancelScheduleAction,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +38,11 @@ function PostRow({
           {post.status === "draft" && (
             <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
               Draft
+            </span>
+          )}
+          {post.status === "scheduled" && post.scheduled_for && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              Scheduled for {formatDateTime(post.scheduled_for)}
             </span>
           )}
           {post.status === "published" && !post.social_shared && (
@@ -85,17 +92,61 @@ function PostRow({
         >
           Edit
         </Link>
-        {pending && (
-          <form
-            action={async () => {
-              "use server";
-              await approvePostAction(post.id);
-            }}
-          >
-            <button type="submit" className="font-medium text-green-700 hover:underline">
-              Approve
-            </button>
-          </form>
+        {pending && post.status === "draft" && (
+          <>
+            <form
+              action={async () => {
+                "use server";
+                await approvePostAction(post.id);
+              }}
+            >
+              <button type="submit" className="font-medium text-green-700 hover:underline">
+                Approve
+              </button>
+            </form>
+            <form
+              action={async (formData: FormData) => {
+                "use server";
+                await schedulePostAction(post.id, formData);
+              }}
+              className="flex items-center gap-1"
+            >
+              <input
+                type="datetime-local"
+                name="scheduledFor"
+                required
+                min={toEasternDatetimeLocalValue(new Date().toISOString())}
+                className="rounded border border-zinc-300 px-1 py-0.5 text-xs"
+              />
+              <button type="submit" className="font-medium text-blue-700 hover:underline">
+                Schedule
+              </button>
+            </form>
+          </>
+        )}
+        {pending && post.status === "scheduled" && (
+          <>
+            <form
+              action={async () => {
+                "use server";
+                await approvePostAction(post.id);
+              }}
+            >
+              <button type="submit" className="font-medium text-green-700 hover:underline">
+                Publish Now
+              </button>
+            </form>
+            <form
+              action={async () => {
+                "use server";
+                await cancelScheduleAction(post.id);
+              }}
+            >
+              <button type="submit" className="text-zinc-500 hover:underline">
+                Cancel
+              </button>
+            </form>
+          </>
         )}
         {!pending && post.status === "published" && !post.social_shared && (
           <form
@@ -151,8 +202,8 @@ function PostRow({
 
 export default async function AdminDashboard() {
   const posts = await getAllPostsAdmin();
-  const pending = posts.filter((p) => p.status === "draft");
-  const rest = posts.filter((p) => p.status !== "draft");
+  const pending = posts.filter((p) => p.status === "draft" || p.status === "scheduled");
+  const rest = posts.filter((p) => p.status === "published");
 
   return (
     <div className="min-h-screen bg-cream">

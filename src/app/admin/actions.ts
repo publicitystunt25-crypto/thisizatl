@@ -21,6 +21,9 @@ import {
   setFeaturedPost,
   unsetFeaturedPost,
   setSocialShared,
+  schedulePost,
+  cancelSchedule,
+  clearSchedule,
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
@@ -261,8 +264,24 @@ export async function approvePostAction(id: number): Promise<void> {
     instagramHandle,
   });
   await setSocialShared(post.id, shared);
+  await clearSchedule(post.id);
 
   revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function schedulePostAction(id: number, formData: FormData): Promise<void> {
+  await requireAdmin();
+  const raw = String(formData.get("scheduledFor") || "").trim();
+  if (!raw) throw new Error("Scheduled time is required");
+  const scheduledFor = fromEasternDatetimeLocalValue(raw);
+  await schedulePost(id, scheduledFor);
+  revalidatePath("/admin");
+}
+
+export async function cancelScheduleAction(id: number): Promise<void> {
+  await requireAdmin();
+  await cancelSchedule(id);
   revalidatePath("/admin");
 }
 

@@ -25,7 +25,7 @@ Follow these rules strictly:
 6. PRONOUNS. Use exactly the pronouns given in the submission's "Pronouns" field for the artist.
    Never guess gender from their stage name, handle, or genre.
 
-Also classify the post into exactly one category: "Music", "Entertainment", "Fashion", or "Culture"
+Also classify the post into exactly one category: "Music", "Entertainment", or "Fashion"
 (pick whichever best fits what the artist actually does -- most submissions will be "Music").
 
 Also propose a short headline for the piece.
@@ -45,7 +45,7 @@ const PUBLISH_TOOL: Anthropic.Tool = {
       },
       category: {
         type: "string",
-        enum: ["Music", "Entertainment", "Fashion", "Culture"],
+        enum: ["Music", "Entertainment", "Fashion"],
         description: "The single best-fit category for this post.",
       },
     },

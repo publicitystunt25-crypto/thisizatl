@@ -36,7 +36,7 @@ export default async function EditPostPage({
             defaultTitle={post.title}
             defaultBody={post.body}
             defaultCategory={post.category}
-            defaultStatus={post.status}
+            defaultStatus={post.status === "scheduled" ? "draft" : post.status}
             defaultCreatedAt={post.created_at}
             currentImageUrl={post.image_url}
             currentImageCredit={post.image_credit}
