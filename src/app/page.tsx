@@ -57,7 +57,16 @@ export default async function Home({
             href={`/posts/${featured.slug}`}
             className="group mb-10 grid gap-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors hover:border-brand/40 sm:grid-cols-2 sm:gap-6"
           >
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-100 sm:aspect-auto">
+            <div
+              className={`relative w-full overflow-hidden bg-zinc-100 ${
+                featured.image_width && featured.image_height ? "" : "aspect-[16/10]"
+              }`}
+              style={
+                featured.image_width && featured.image_height
+                  ? { aspectRatio: `${featured.image_width} / ${featured.image_height}` }
+                  : undefined
+              }
+            >
               {featured.image_url ? (
                 <Image
                   src={featured.image_url}

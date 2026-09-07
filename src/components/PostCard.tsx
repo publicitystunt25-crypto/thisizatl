@@ -10,7 +10,16 @@ export default function PostCard({ post }: { post: Post }) {
       href={`/posts/${post.slug}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-100">
+      <div
+        className={`relative w-full overflow-hidden bg-zinc-100 ${
+          post.image_width && post.image_height ? "" : "aspect-[16/10]"
+        }`}
+        style={
+          post.image_width && post.image_height
+            ? { aspectRatio: `${post.image_width} / ${post.image_height}` }
+            : undefined
+        }
+      >
         {post.image_url ? (
           <Image
             src={post.image_url}
