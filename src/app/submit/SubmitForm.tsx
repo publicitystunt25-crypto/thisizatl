@@ -283,7 +283,7 @@ function OtherFields() {
       </div>
 
       <div>
-        <label className={labelClasses}>Link to Your Work</label>
+        <label className={labelClasses}>Link to Your Work (optional)</label>
         <input
           type="url"
           name="linkUrl"
