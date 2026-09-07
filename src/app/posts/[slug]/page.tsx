@@ -6,14 +6,9 @@ import { formatDateTime } from "@/lib/date";
 import CategoryBadge from "@/components/CategoryBadge";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import ArticleLinks, { type SourceCredit } from "@/components/ArticleLinks";
 
 export const dynamic = "force-dynamic";
-
-interface SourceCredit {
-  title: string;
-  url: string;
-  source: string;
-}
 
 function excerpt(text: string, max = 160): string {
   const flat = text.replace(/\s+/g, " ").trim();
@@ -141,25 +136,7 @@ export default async function PostPage({
           </div>
         )}
 
-        {sources.length > 0 && (
-          <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-5 text-sm">
-            <p className="font-semibold text-ink">Sources</p>
-            <ul className="mt-2 space-y-1.5">
-              {sources.map((s, i) => (
-                <li key={i}>
-                  <a
-                    href={s.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-dark hover:underline"
-                  >
-                    {s.source}: {s.title}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <ArticleLinks sources={sources} artistName={post.image_credit} />
       </main>
 
       <SiteFooter />
