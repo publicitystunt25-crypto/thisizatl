@@ -28,7 +28,7 @@ export default function ArticleLinks({
     const name = artistName || "the artist";
 
     return (
-      <div className="mt-10 space-y-2 rounded-xl border border-zinc-200 bg-white p-5 text-sm">
+      <div className="mt-8 space-y-2 text-[17px] leading-relaxed">
         {instagram && (
           <p>
             <a
@@ -43,14 +43,13 @@ export default function ArticleLinks({
         )}
         {music && (
           <p>
-            Check out{" "}
             <a
               href={music.url}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-brand-dark hover:underline"
             >
-              {name}&rsquo;s music here
+              Check out {name}&rsquo;s music here
             </a>
           </p>
         )}
