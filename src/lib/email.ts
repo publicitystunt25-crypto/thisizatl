@@ -1,7 +1,7 @@
 import type { ArtistSubmission } from "./spotlight";
 
 // thisizatl.com is verified on Resend, so this can send to any inbox.
-const FROM_ADDRESS = "ThisIzATL <notify@thisizatl.com>";
+const FROM_ADDRESS = "ThisIzATL <info@thisizatl.com>";
 
 export async function sendSubmissionNotification(
   submission: ArtistSubmission,
