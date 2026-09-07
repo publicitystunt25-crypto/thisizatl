@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getPostById, getPostImages } from "@/lib/db";
+import { formatDateTime } from "@/lib/date";
 import CategoryBadge from "@/components/CategoryBadge";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -47,10 +48,7 @@ export default async function AdminPostPreviewPage({
         </h1>
         <p className="mt-3 text-sm text-zinc-500">
           {post.author && <>By {post.author} · </>}
-          {new Date(post.created_at).toLocaleString(undefined, {
-            dateStyle: "long",
-            timeStyle: "short",
-          })}
+          {formatDateTime(post.created_at)}
         </p>
 
         {post.image_url && (

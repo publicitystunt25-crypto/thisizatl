@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { submitArtistAction } from "./actions";
+import SubmitButton from "./SubmitButton";
 
 export const metadata: Metadata = {
   title: "Submit Your Music",
@@ -129,12 +130,7 @@ export default function SubmitPage() {
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full rounded-full bg-brand py-3 font-medium text-white hover:bg-brand-dark"
-          >
-            Submit for Review
-          </button>
+          <SubmitButton />
         </form>
       </main>
 

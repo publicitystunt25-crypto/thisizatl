@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import CategoryBadge from "./CategoryBadge";
 import type { Post } from "@/lib/db";
+import { formatDate } from "@/lib/date";
 
 export default function PostCard({ post }: { post: Post }) {
   return (
@@ -33,11 +34,7 @@ export default function PostCard({ post }: { post: Post }) {
           {post.body}
         </p>
         <p className="mt-3 text-xs text-zinc-400">
-          {new Date(post.created_at).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          {formatDate(post.created_at)}
         </p>
       </div>
     </Link>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getAllPostsAdmin, type Post } from "@/lib/db";
+import { formatShortDateTime } from "@/lib/date";
 import {
   logoutAction,
   deletePostAction,
@@ -47,7 +48,7 @@ function PostRow({
           {post.title}
         </p>
         <p className="text-xs text-zinc-400">
-          {new Date(post.created_at).toLocaleString()}
+          {formatShortDateTime(post.created_at)}
         </p>
       </div>
       <div

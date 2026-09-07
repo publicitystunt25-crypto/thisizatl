@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getAllPosts, type Post } from "@/lib/db";
 import { CATEGORIES, FEATURED_PRIORITY } from "@/lib/categories";
+import { formatDate } from "@/lib/date";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import CategoryBadge from "@/components/CategoryBadge";
@@ -81,11 +82,7 @@ export default async function Home({
                 {featured.body}
               </p>
               <p className="mt-3 text-xs text-zinc-400 sm:mt-4">
-                {new Date(featured.created_at).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatDate(featured.created_at)}
               </p>
             </div>
           </Link>

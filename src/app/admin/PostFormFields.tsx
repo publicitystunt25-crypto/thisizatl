@@ -1,4 +1,5 @@
 import { CATEGORIES } from "@/lib/categories";
+import { toEasternDatetimeLocalValue } from "@/lib/date";
 import ImageUploadField from "./ImageUploadField";
 import GalleryUploader from "./GalleryUploader";
 
@@ -6,14 +7,6 @@ interface ExistingGalleryImage {
   id: number;
   url: string;
   credit: string | null;
-}
-
-function toDatetimeLocalValue(iso?: string | null): string {
-  const d = iso ? new Date(iso) : new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`;
 }
 
 export default function PostFormFields({
@@ -103,12 +96,12 @@ export default function PostFormFields({
 
       <div>
         <label className="block text-sm font-medium text-zinc-700">
-          Published Date
+          Published Date (Eastern time)
         </label>
         <input
           type="datetime-local"
           name="created_at"
-          defaultValue={toDatetimeLocalValue(defaultCreatedAt)}
+          defaultValue={toEasternDatetimeLocalValue(defaultCreatedAt)}
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
         />
         <p className="mt-1 text-xs text-zinc-400">

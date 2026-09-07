@@ -24,6 +24,7 @@ import {
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 import { shareNewPost, extractInstagramHandle } from "@/lib/social";
+import { fromEasternDatetimeLocalValue } from "@/lib/date";
 import { processImageUpload } from "@/lib/image";
 
 export async function loginAction(formData: FormData): Promise<void> {
@@ -74,9 +75,11 @@ function readImageCredit(formData: FormData): string | null {
 function readCreatedAt(formData: FormData): string | null {
   const raw = String(formData.get("created_at") || "").trim();
   if (!raw) return null;
-  const d = new Date(raw);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString();
+  try {
+    return fromEasternDatetimeLocalValue(raw);
+  } catch {
+    return null;
+  }
 }
 
 async function saveImageIfPresent(
