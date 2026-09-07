@@ -1,9 +1,16 @@
 import { Pool } from "pg";
 import { cache } from "react";
 
+// Supabase's session-mode pooler (port 5432) caps concurrent clients low
+// (15 on this project) -- a small max here, plus releasing idle clients
+// quickly, keeps a single app instance from eating a big share of that
+// budget, especially with an old instance briefly overlapping a new one
+// during a Render deploy.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
+  max: 5,
+  idleTimeoutMillis: 10000,
 });
 
 let initialized: Promise<void> | null = null;
