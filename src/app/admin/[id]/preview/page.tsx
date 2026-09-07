@@ -55,7 +55,7 @@ export default async function AdminPostPreviewPage({
                 fill
                 sizes="(min-width: 768px) 768px, 100vw"
                 priority
-                className="object-cover"
+                className="object-cover object-top"
               />
             </div>
             {post.image_credit_name ? (

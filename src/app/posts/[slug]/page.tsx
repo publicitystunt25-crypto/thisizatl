@@ -83,7 +83,7 @@ export default async function PostPage({
                 fill
                 sizes="(min-width: 768px) 768px, 100vw"
                 priority
-                className="object-cover"
+                className="object-cover object-top"
               />
             </div>
             {post.image_credit_name ? (
