@@ -17,7 +17,9 @@ Follow these rules strictly:
    them, or attribute them explicitly as the artist's own framing (e.g. "as they put it...").
 3. THIRD PERSON, FEATURE VOICE. Write like a real spotlight piece, not a rewritten form -- weave
    the details into a natural short feature rather than answering the submitted questions in order.
-4. LENGTH. 120-220 words.
+4. LENGTH. 220-320 words (roughly 5 short paragraphs) -- use the extra room to
+   actually develop the artist's story (origin, the release, their broader intent, what's next),
+   not to pad with filler or repeat the same point in different words.
 5. TONE. Clean, warm, neutral local-culture voice -- genuinely introducing a new artist to an
    Atlanta audience, not an ad.
 
@@ -37,7 +39,7 @@ const PUBLISH_TOOL: Anthropic.Tool = {
       title: { type: "string", description: "Short headline, in your own wording." },
       body: {
         type: "string",
-        description: "The 120-220 word article body, with \\n\\n between paragraphs.",
+        description: "The 220-320 word article body, with \\n\\n between paragraphs.",
       },
       category: {
         type: "string",
@@ -52,11 +54,14 @@ const PUBLISH_TOOL: Anthropic.Tool = {
 export interface ArtistSubmission {
   artistName: string;
   genre: string;
+  origin: string;
   biggestInspiration: string;
   whatsNew: string;
+  takeaway: string;
   bio: string;
   instagramUrl: string;
   musicUrl: string;
+  anythingElse: string | null;
 }
 
 export interface SpotlightArticle {
@@ -70,9 +75,12 @@ export async function generateSpotlightArticle(
 ): Promise<SpotlightArticle> {
   const submissionBlock = `Artist/stage name: ${submission.artistName}
 Genre: ${submission.genre}
+How they got started in music: ${submission.origin}
 Biggest inspiration (person or thing): ${submission.biggestInspiration}
 What's new (single/project/announcement): ${submission.whatsNew}
-Bio, in the artist's own words: ${submission.bio}`;
+What they want listeners to take away from their music: ${submission.takeaway}
+Bio, in the artist's own words: ${submission.bio}
+Anything else fans should know (shows/projects/plans): ${submission.anythingElse || "(not provided)"}`;
 
   const message = await anthropic.messages.create({
     model: MODEL,

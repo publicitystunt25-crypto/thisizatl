@@ -61,6 +61,18 @@ export default function SubmitPage() {
 
           <div>
             <label className={labelClasses}>
+              How did you get started in music?
+            </label>
+            <textarea
+              name="origin"
+              required
+              rows={3}
+              className={inputClasses}
+            />
+          </div>
+
+          <div>
+            <label className={labelClasses}>
               Who or what is your biggest inspiration?
             </label>
             <input
@@ -78,6 +90,18 @@ export default function SubmitPage() {
               name="whatsNew"
               required
               placeholder="New single, project, tour, announcement..."
+              className={inputClasses}
+            />
+          </div>
+
+          <div>
+            <label className={labelClasses}>
+              What do you want listeners to take away from your music?
+            </label>
+            <textarea
+              name="takeaway"
+              required
+              rows={3}
               className={inputClasses}
             />
           </div>
@@ -111,6 +135,18 @@ export default function SubmitPage() {
               name="musicUrl"
               required
               placeholder="Spotify, Apple Music, SoundCloud, YouTube..."
+              className={inputClasses}
+            />
+          </div>
+
+          <div>
+            <label className={labelClasses}>
+              Anything else fans should know? (optional)
+            </label>
+            <textarea
+              name="anythingElse"
+              rows={3}
+              placeholder="Upcoming shows, projects, plans..."
               className={inputClasses}
             />
           </div>

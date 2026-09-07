@@ -22,11 +22,14 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   const submission: ArtistSubmission = {
     artistName: required(formData, "artistName"),
     genre: required(formData, "genre"),
+    origin: required(formData, "origin"),
     biggestInspiration: required(formData, "biggestInspiration"),
     whatsNew: required(formData, "whatsNew"),
+    takeaway: required(formData, "takeaway"),
     bio: required(formData, "bio"),
     instagramUrl: required(formData, "instagramUrl"),
     musicUrl: required(formData, "musicUrl"),
+    anythingElse: String(formData.get("anythingElse") || "").trim() || null,
   };
 
   const photo = formData.get("photo");
