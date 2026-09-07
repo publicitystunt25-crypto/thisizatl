@@ -46,10 +46,10 @@ export function extractInstagramHandle(url: string | null | undefined): string |
   }
 }
 
-async function postToFacebookPage(post: SocialPost): Promise<void> {
+async function postToFacebookPage(post: SocialPost): Promise<string | null> {
   const pageId = process.env.FB_PAGE_ID;
   const token = process.env.FB_PAGE_ACCESS_TOKEN;
-  if (!pageId || !token) return;
+  if (!pageId || !token) return null;
 
   const url = `${SITE_URL}/posts/${post.slug}`;
   const res = await fetch(`${GRAPH_BASE}/${pageId}/feed`, {
@@ -66,6 +66,28 @@ async function postToFacebookPage(post: SocialPost): Promise<void> {
     const body = await res.text();
     throw new Error(`Facebook post failed: ${res.status} ${body}`);
   }
+
+  const { id } = (await res.json()) as { id: string };
+  return id;
+}
+
+// Instagram's Graph API has no endpoint to delete published media (Stories
+// included) -- Content Publishing is publish-only. Stories also auto-expire
+// after 24h regardless. Facebook feed posts, however, can be deleted.
+export async function deleteFacebookPost(fbPostId: string): Promise<boolean> {
+  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  if (!token) return false;
+
+  const res = await fetch(`${GRAPH_BASE}/${fbPostId}?access_token=${token}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Facebook post delete failed:", res.status, body);
+    return false;
+  }
+  return true;
 }
 
 async function postToInstagramStory(post: SocialPost): Promise<void> {
@@ -120,21 +142,35 @@ async function postToInstagramStory(post: SocialPost): Promise<void> {
   }
 }
 
+export interface ShareResult {
+  ok: boolean;
+  fbPostId: string | null;
+}
+
 // Failures here should never break the main post-publishing flow, so every
-// error is caught and logged -- but the caller gets a boolean back so it can
-// record share status on the post instead of the failure vanishing silently.
-export async function shareNewPost(post: SocialPost): Promise<boolean> {
+// error is caught and logged -- but the caller gets a result back so it can
+// record share status (and the Facebook post id, for later deletion) instead
+// of the failure vanishing silently.
+export async function shareNewPost(post: SocialPost): Promise<ShareResult> {
   const results = await Promise.allSettled([
     postToFacebookPage(post),
     postToInstagramStory(post),
   ]);
 
-  let allOk = true;
-  for (const result of results) {
-    if (result.status === "rejected") {
-      console.error("Social share failed:", result.reason);
-      allOk = false;
-    }
+  let ok = true;
+  let fbPostId: string | null = null;
+  const [fbResult, igResult] = results;
+
+  if (fbResult.status === "fulfilled") {
+    fbPostId = fbResult.value;
+  } else {
+    console.error("Social share failed:", fbResult.reason);
+    ok = false;
   }
-  return allOk;
+  if (igResult.status === "rejected") {
+    console.error("Social share failed:", igResult.reason);
+    ok = false;
+  }
+
+  return { ok, fbPostId };
 }

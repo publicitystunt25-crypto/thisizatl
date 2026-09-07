@@ -183,8 +183,8 @@ export async function runPipeline(maxClusters = 6): Promise<PipelineLogEntry[]> 
         image_height: photo?.height ?? null,
       });
 
-      const shared = await shareNewPost({ id: newId, title: generated.title, slug, image_url: photo?.url ?? null });
-      await setSocialShared(newId, shared);
+      const result = await shareNewPost({ id: newId, title: generated.title, slug, image_url: photo?.url ?? null });
+      await setSocialShared(newId, result.ok, result.fbPostId);
 
       recentTitles.push(generated.title);
       publishedCount++;
@@ -226,14 +226,14 @@ export async function publishDueScheduledPosts(): Promise<{ id: number; title: s
       // sources isn't valid JSON or doesn't include an Instagram entry -- fine.
     }
 
-    const shared = await shareNewPost({
+    const result = await shareNewPost({
       id: post.id,
       title: post.title,
       slug: post.slug,
       image_url: post.image_url,
       instagramHandle,
     });
-    await setSocialShared(post.id, shared);
+    await setSocialShared(post.id, result.ok, result.fbPostId);
 
     if (post.submitter_email) {
       try {

@@ -27,7 +27,7 @@ import {
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
-import { shareNewPost, extractInstagramHandle } from "@/lib/social";
+import { shareNewPost, extractInstagramHandle, deleteFacebookPost } from "@/lib/social";
 import { sendArticleLiveNotification } from "@/lib/email";
 import { fromEasternDatetimeLocalValue } from "@/lib/date";
 import { processImageUpload } from "@/lib/image";
@@ -147,8 +147,8 @@ export async function createPostAction(formData: FormData): Promise<void> {
   if (fields.status === "published") {
     const post = await getPostById(id);
     if (post) {
-      const shared = await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
-      await setSocialShared(post.id, shared);
+      const result = await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+      await setSocialShared(post.id, result.ok, result.fbPostId);
     }
   }
 
@@ -185,8 +185,8 @@ export async function updatePostAction(
   if (existing.status === "draft" && fields.status === "published") {
     const post = await getPostById(id);
     if (post) {
-      const shared = await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
-      await setSocialShared(post.id, shared);
+      const result = await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+      await setSocialShared(post.id, result.ok, result.fbPostId);
     }
   }
 
@@ -198,6 +198,14 @@ export async function updatePostAction(
 
 export async function deletePostAction(id: number): Promise<void> {
   await requireAdmin();
+  const post = await getPostById(id);
+  if (post?.fb_post_id) {
+    try {
+      await deleteFacebookPost(post.fb_post_id);
+    } catch (err) {
+      console.error("Facebook post delete failed:", err);
+    }
+  }
   await deletePost(id);
   revalidatePath("/");
   revalidatePath("/admin");
@@ -257,14 +265,14 @@ export async function approvePostAction(id: number): Promise<void> {
     // just means no tag gets attached.
   }
 
-  const shared = await shareNewPost({
+  const result = await shareNewPost({
     id: post.id,
     title: post.title,
     slug: post.slug,
     image_url: post.image_url,
     instagramHandle,
   });
-  await setSocialShared(post.id, shared);
+  await setSocialShared(post.id, result.ok, result.fbPostId);
   await clearSchedule(post.id);
 
   if (post.submitter_email) {
@@ -309,14 +317,14 @@ export async function retrySocialShareAction(id: number): Promise<void> {
     // just means no tag gets attached.
   }
 
-  const shared = await shareNewPost({
+  const result = await shareNewPost({
     id: post.id,
     title: post.title,
     slug: post.slug,
     image_url: post.image_url,
     instagramHandle,
   });
-  await setSocialShared(post.id, shared);
+  await setSocialShared(post.id, result.ok, result.fbPostId);
 
   revalidatePath("/admin");
 }
