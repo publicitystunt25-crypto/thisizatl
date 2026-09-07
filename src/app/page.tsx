@@ -66,6 +66,11 @@ export default async function Home({
                   sizes="(min-width: 640px) 50vw, 100vw"
                   priority
                   className="object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                  style={
+                    featured.focus_x != null && featured.focus_y != null
+                      ? { objectPosition: `${featured.focus_x}% ${featured.focus_y}%` }
+                      : undefined
+                  }
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-zinc-300">

@@ -98,8 +98,8 @@ async function saveImageIfPresent(
     throw new Error("Uploaded file is not an image");
   }
   const raw = Buffer.from(await file.arrayBuffer());
-  const { buffer, mime, width, height } = await processImageUpload(raw, 1600);
-  await setPostImage(postId, buffer, mime, `/api/uploads/${postId}`, credit, { width, height });
+  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+  await setPostImage(postId, buffer, mime, `/api/uploads/${postId}`, credit, { width, height }, focus);
 }
 
 async function saveGalleryIfPresent(postId: number, formData: FormData) {

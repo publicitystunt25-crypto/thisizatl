@@ -18,6 +18,11 @@ export default function PostCard({ post }: { post: Post }) {
             fill
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover object-top transition-transform duration-300 group-hover:scale-105"
+            style={
+              post.focus_x != null && post.focus_y != null
+                ? { objectPosition: `${post.focus_x}% ${post.focus_y}%` }
+                : undefined
+            }
           />
         ) : (
           <div className="flex h-full items-center justify-center text-zinc-300">

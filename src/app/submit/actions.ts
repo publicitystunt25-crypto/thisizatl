@@ -88,8 +88,8 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   });
 
   const raw = Buffer.from(await photo.arrayBuffer());
-  const { buffer, mime, width, height } = await processImageUpload(raw, 1600);
-  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName, { width, height });
+  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName, { width, height }, focus);
 
   try {
     await sendSubmissionNotification(submission, id);
@@ -165,8 +165,8 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
   });
 
   const raw = Buffer.from(await photo.arrayBuffer());
-  const { buffer, mime, width, height } = await processImageUpload(raw, 1600);
-  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.name, { width, height });
+  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.name, { width, height }, focus);
 
   try {
     await sendOtherSubmissionNotification(submission, id);
