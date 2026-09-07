@@ -169,16 +169,28 @@ export default function SubmitPage() {
 
           <div>
             <label className={labelClasses}>
-              Are you following ThisIzATL on Instagram?
+              Follow ThisIzATL on Instagram
             </label>
-            <div className="mt-1 flex gap-6 text-sm text-zinc-700">
+            <p className="mt-1 text-sm text-zinc-600">
+              We tag and share every artist we feature —{" "}
+              <a
+                href="https://www.instagram.com/thisizatl"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-brand-dark hover:underline"
+              >
+                follow @ThisizATL
+              </a>{" "}
+              so you don&rsquo;t miss it.
+            </p>
+            <div className="mt-2 flex gap-6 text-sm text-zinc-700">
               <label className="flex items-center gap-2">
                 <input type="radio" name="followsInstagram" value="yes" />
-                Yes
+                I&rsquo;m following
               </label>
               <label className="flex items-center gap-2">
                 <input type="radio" name="followsInstagram" value="no" />
-                No
+                Not yet
               </label>
             </div>
           </div>
