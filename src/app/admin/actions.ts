@@ -20,6 +20,7 @@ import {
   clearPostImage,
   setFeaturedPost,
   unsetFeaturedPost,
+  setSocialShared,
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
@@ -142,7 +143,8 @@ export async function createPostAction(formData: FormData): Promise<void> {
   if (fields.status === "published") {
     const post = await getPostById(id);
     if (post) {
-      await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+      const shared = await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+      await setSocialShared(post.id, shared);
     }
   }
 
@@ -179,7 +181,8 @@ export async function updatePostAction(
   if (existing.status === "draft" && fields.status === "published") {
     const post = await getPostById(id);
     if (post) {
-      await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+      const shared = await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+      await setSocialShared(post.id, shared);
     }
   }
 
@@ -250,14 +253,42 @@ export async function approvePostAction(id: number): Promise<void> {
     // just means no tag gets attached.
   }
 
-  await shareNewPost({
+  const shared = await shareNewPost({
     id: post.id,
     title: post.title,
     slug: post.slug,
     image_url: post.image_url,
     instagramHandle,
   });
+  await setSocialShared(post.id, shared);
 
   revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function retrySocialShareAction(id: number): Promise<void> {
+  await requireAdmin();
+  const post = await getPostById(id);
+  if (!post) throw new Error("Post not found");
+
+  let instagramHandle: string | null = null;
+  try {
+    const sources = JSON.parse(post.sources) as { source: string; url: string }[];
+    const igSource = sources.find((s) => s.source === "Instagram");
+    instagramHandle = extractInstagramHandle(igSource?.url);
+  } catch {
+    // sources isn't valid JSON or doesn't include an Instagram entry -- fine,
+    // just means no tag gets attached.
+  }
+
+  const shared = await shareNewPost({
+    id: post.id,
+    title: post.title,
+    slug: post.slug,
+    image_url: post.image_url,
+    instagramHandle,
+  });
+  await setSocialShared(post.id, shared);
+
   revalidatePath("/admin");
 }

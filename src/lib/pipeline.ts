@@ -10,6 +10,7 @@ import {
   insertPost,
   getRecentPostTitles,
   getTodayPostCount,
+  setSocialShared,
 } from "./db";
 import { slugify } from "./slug";
 
@@ -179,7 +180,8 @@ export async function runPipeline(maxClusters = 6): Promise<PipelineLogEntry[]> 
         image_height: photo?.height ?? null,
       });
 
-      await shareNewPost({ id: newId, title: generated.title, slug, image_url: photo?.url ?? null });
+      const shared = await shareNewPost({ id: newId, title: generated.title, slug, image_url: photo?.url ?? null });
+      await setSocialShared(newId, shared);
 
       recentTitles.push(generated.title);
       publishedCount++;

@@ -8,6 +8,7 @@ import {
   setFeaturedPostAction,
   unsetFeaturedPostAction,
   approvePostAction,
+  retrySocialShareAction,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,11 @@ function PostRow({
           {post.status === "draft" && (
             <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
               Draft
+            </span>
+          )}
+          {post.status === "published" && !post.social_shared && (
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+              Didn&rsquo;t share to FB/IG
             </span>
           )}
           <span className="rounded-full bg-brand/15 px-2 py-0.5 text-xs font-medium text-brand-dark">
@@ -88,6 +94,18 @@ function PostRow({
           >
             <button type="submit" className="font-medium text-green-700 hover:underline">
               Approve
+            </button>
+          </form>
+        )}
+        {!pending && post.status === "published" && !post.social_shared && (
+          <form
+            action={async () => {
+              "use server";
+              await retrySocialShareAction(post.id);
+            }}
+          >
+            <button type="submit" className="font-medium text-red-700 hover:underline">
+              Retry share
             </button>
           </form>
         )}

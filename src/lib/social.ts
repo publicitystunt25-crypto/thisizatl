@@ -101,17 +101,21 @@ async function postToInstagramStory(post: SocialPost): Promise<void> {
   }
 }
 
-// Fire-and-forget from the caller's perspective: failures here should never
-// break the main post-publishing flow, so every error is caught and logged.
-export async function shareNewPost(post: SocialPost): Promise<void> {
+// Failures here should never break the main post-publishing flow, so every
+// error is caught and logged -- but the caller gets a boolean back so it can
+// record share status on the post instead of the failure vanishing silently.
+export async function shareNewPost(post: SocialPost): Promise<boolean> {
   const results = await Promise.allSettled([
     postToFacebookPage(post),
     postToInstagramStory(post),
   ]);
 
+  let allOk = true;
   for (const result of results) {
     if (result.status === "rejected") {
       console.error("Social share failed:", result.reason);
+      allOk = false;
     }
   }
+  return allOk;
 }
