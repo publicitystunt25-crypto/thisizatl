@@ -5,6 +5,7 @@ import { insertPost, setPostImage, hasRecentSubmissionByArtist } from "@/lib/db"
 import { slugify } from "@/lib/slug";
 import { processImageUpload } from "@/lib/image";
 import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
+import { sendSubmissionNotification } from "@/lib/email";
 
 function required(formData: FormData, field: string): string {
   const value = String(formData.get(field) || "").trim();
@@ -73,6 +74,12 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   const raw = Buffer.from(await photo.arrayBuffer());
   const { buffer, mime, width, height } = await processImageUpload(raw, 1600);
   await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName, { width, height });
+
+  try {
+    await sendSubmissionNotification(submission, id);
+  } catch (err) {
+    console.error("Submission notification email failed:", err);
+  }
 
   redirect("/submit/thanks");
 }
