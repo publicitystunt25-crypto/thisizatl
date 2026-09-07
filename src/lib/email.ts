@@ -1,10 +1,7 @@
 import type { ArtistSubmission } from "./spotlight";
 
-// Uses Resend's shared sending address -- works with zero setup, but Resend
-// only allows it to deliver to the email the Resend account itself was
-// created with. Verify a domain at resend.com/domains to send from a
-// branded address to any inbox instead.
-const FROM_ADDRESS = "ThisIzATL <onboarding@resend.dev>";
+// thisizatl.com is verified on Resend, so this can send to any inbox.
+const FROM_ADDRESS = "ThisIzATL <notify@thisizatl.com>";
 
 export async function sendSubmissionNotification(
   submission: ArtistSubmission,
@@ -46,10 +43,7 @@ Review it here: ${reviewUrl}`;
 }
 
 // Sent to the artist once their submission goes live (whether approved
-// directly or via a schedule coming due). Unlike sendSubmissionNotification,
-// this delivers to an arbitrary external address, which Resend's shared
-// resend.dev sender can't do -- it requires a verified sending domain, so
-// this silently fails (logged, not thrown) until thisizatl.com is verified.
+// directly or via a schedule coming due).
 export async function sendArticleLiveNotification(
   to: string,
   artistName: string,
@@ -79,7 +73,7 @@ Feel free to share the link with your fans.
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "ThisIzATL <notify@thisizatl.com>",
+      from: FROM_ADDRESS,
       to,
       subject: `Your ThisIzATL feature is live: ${title}`,
       text,
