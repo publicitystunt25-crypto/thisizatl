@@ -65,8 +65,12 @@ async function postToInstagramStory(post: SocialPost): Promise<void> {
   };
   // Tagged accounts must be public, or Instagram silently drops the tag
   // rather than erroring -- this is a best-effort mention, not guaranteed.
+  // x/y are required for the tag to render as a visible mention sticker on
+  // the Story (omitting them attaches the tag as metadata only, with no
+  // visible sticker) -- placed near the top, clear of the headline/CTA text
+  // burned into the bottom of the image.
   if (post.instagramHandle) {
-    body.user_tags = [{ username: post.instagramHandle }];
+    body.user_tags = [{ username: post.instagramHandle, x: 0.5, y: 0.08 }];
   }
 
   const createRes = await fetch(`${GRAPH_BASE}/${igUserId}/media`, {
