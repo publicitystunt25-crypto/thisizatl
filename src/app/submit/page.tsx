@@ -80,22 +80,25 @@ export default function SubmitPage() {
 
           <div>
             <label className={labelClasses}>
-              How did you get started in music? (optional)
+              How did you get started in music?
             </label>
-            <textarea name="origin" rows={3} className={inputClasses} />
+            <textarea name="origin" required rows={3} className={inputClasses} />
           </div>
 
           <div>
             <label className={labelClasses}>
-              Who or what is your biggest inspiration? (optional)
+              Who or what is your biggest inspiration?
             </label>
-            <textarea name="biggestInspiration" rows={3} className={inputClasses} />
+            <textarea name="biggestInspiration" required rows={3} className={inputClasses} />
           </div>
 
           <div>
-            <label className={labelClasses}>What&rsquo;s New (optional)</label>
+            <label className={labelClasses}>
+              What are you currently working on or have coming up?
+            </label>
             <textarea
               name="whatsNew"
+              required
               rows={3}
               placeholder="New single, project, tour, announcement..."
               className={inputClasses}
@@ -104,7 +107,7 @@ export default function SubmitPage() {
 
           <div>
             <label className={labelClasses}>
-              What do you want listeners to take away from your music? (optional)
+              What do you want listeners to take away from your music?
             </label>
             <textarea name="takeaway" rows={3} className={inputClasses} />
           </div>
@@ -121,7 +124,7 @@ export default function SubmitPage() {
 
           <div>
             <label className={labelClasses}>
-              What is your Instagram username? (optional)
+              What is your Instagram username?
             </label>
             <input
               type="text"
@@ -132,7 +135,7 @@ export default function SubmitPage() {
           </div>
 
           <div>
-            <label className={labelClasses}>Link to Your Music (optional)</label>
+            <label className={labelClasses}>Link to Your Music</label>
             <input
               type="url"
               name="musicUrl"
@@ -166,7 +169,7 @@ export default function SubmitPage() {
 
           <div>
             <label className={labelClasses}>
-              Are you following ThisIzATL on Instagram? (optional)
+              Are you following ThisIzATL on Instagram?
             </label>
             <div className="mt-1 flex gap-6 text-sm text-zinc-700">
               <label className="flex items-center gap-2">

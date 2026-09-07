@@ -60,9 +60,9 @@ export interface ArtistSubmission {
   pronouns: string;
   hometown: string | null;
   genre: string;
-  origin: string | null;
-  biggestInspiration: string | null;
-  whatsNew: string | null;
+  origin: string;
+  biggestInspiration: string;
+  whatsNew: string;
   takeaway: string | null;
   bio: string | null;
   instagramUrl: string | null;
@@ -84,9 +84,9 @@ export async function generateSpotlightArticle(
 Pronouns: ${submission.pronouns}
 Hometown: ${submission.hometown || "(not provided)"}
 Genre: ${submission.genre}
-How they got started in music: ${submission.origin || "(not provided)"}
-Biggest inspiration (person or thing): ${submission.biggestInspiration || "(not provided)"}
-What's new (single/project/announcement): ${submission.whatsNew || "(not provided)"}
+How they got started in music: ${submission.origin}
+Biggest inspiration (person or thing): ${submission.biggestInspiration}
+What's new (single/project/announcement): ${submission.whatsNew}
 What they want listeners to take away from their music: ${submission.takeaway || "(not provided)"}
 Bio, in the artist's own words: ${submission.bio || "(not provided)"}
 Anything else fans should know (shows/projects/plans): ${submission.anythingElse || "(not provided)"}`;
