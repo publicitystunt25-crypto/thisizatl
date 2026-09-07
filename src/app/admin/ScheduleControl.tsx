@@ -24,7 +24,7 @@ export default function ScheduleControl({
   }
 
   return (
-    <form action={action} className="flex items-center gap-1">
+    <form action={action} className="flex w-full basis-full flex-wrap items-center gap-1">
       <input
         type="datetime-local"
         name="scheduledFor"
