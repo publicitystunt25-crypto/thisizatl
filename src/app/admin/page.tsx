@@ -12,6 +12,7 @@ import {
   schedulePostAction,
   cancelScheduleAction,
 } from "./actions";
+import ScheduleControl from "./ScheduleControl";
 
 export const dynamic = "force-dynamic";
 
@@ -105,23 +106,22 @@ function PostRow({
               </button>
             </form>
             <form
+              action={async () => {
+                "use server";
+                await deletePostAction(post.id);
+              }}
+            >
+              <button type="submit" className="text-red-600 hover:underline">
+                Decline
+              </button>
+            </form>
+            <ScheduleControl
+              minValue={toEasternDatetimeLocalValue(new Date().toISOString())}
               action={async (formData: FormData) => {
                 "use server";
                 await schedulePostAction(post.id, formData);
               }}
-              className="flex items-center gap-1"
-            >
-              <input
-                type="datetime-local"
-                name="scheduledFor"
-                required
-                min={toEasternDatetimeLocalValue(new Date().toISOString())}
-                className="rounded border border-zinc-300 px-1 py-0.5 text-xs"
-              />
-              <button type="submit" className="font-medium text-blue-700 hover:underline">
-                Schedule
-              </button>
-            </form>
+            />
           </>
         )}
         {pending && post.status === "scheduled" && (
@@ -185,16 +185,18 @@ function PostRow({
               </button>
             </form>
           ))}
-        <form
-          action={async () => {
-            "use server";
-            await deletePostAction(post.id);
-          }}
-        >
-          <button type="submit" className="text-red-600 hover:underline">
-            Delete
-          </button>
-        </form>
+        {!(pending && post.status === "draft") && (
+          <form
+            action={async () => {
+              "use server";
+              await deletePostAction(post.id);
+            }}
+          >
+            <button type="submit" className="text-red-600 hover:underline">
+              Delete
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
