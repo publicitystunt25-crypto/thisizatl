@@ -19,7 +19,9 @@ Follow these rules strictly:
    the details into a natural short feature rather than answering the submitted questions in order.
 4. LENGTH. 220-320 words (roughly 5 short paragraphs) -- use the extra room to
    actually develop the artist's story (origin, the release, their broader intent, what's next),
-   not to pad with filler or repeat the same point in different words.
+   not to pad with filler or repeat the same point in different words. Most fields are optional,
+   so some submissions will be sparse -- write the best feature you can from whatever was
+   actually provided rather than treating missing fields as something to comment on.
 5. TONE. Clean, warm, neutral local-culture voice -- genuinely introducing a new artist to an
    Atlanta audience, not an ad.
 6. PRONOUNS. Use exactly the pronouns given in the submission's "Pronouns" field for the artist.
@@ -56,14 +58,16 @@ const PUBLISH_TOOL: Anthropic.Tool = {
 export interface ArtistSubmission {
   artistName: string;
   pronouns: string;
+  hometown: string | null;
   genre: string;
-  origin: string;
-  biggestInspiration: string;
-  whatsNew: string;
-  takeaway: string;
-  bio: string;
-  instagramUrl: string;
-  musicUrl: string;
+  origin: string | null;
+  biggestInspiration: string | null;
+  whatsNew: string | null;
+  takeaway: string | null;
+  bio: string | null;
+  instagramUrl: string | null;
+  musicUrl: string | null;
+  followsInstagram: boolean;
   anythingElse: string | null;
 }
 
@@ -78,12 +82,13 @@ export async function generateSpotlightArticle(
 ): Promise<SpotlightArticle> {
   const submissionBlock = `Artist/stage name: ${submission.artistName}
 Pronouns: ${submission.pronouns}
+Hometown: ${submission.hometown || "(not provided)"}
 Genre: ${submission.genre}
-How they got started in music: ${submission.origin}
-Biggest inspiration (person or thing): ${submission.biggestInspiration}
-What's new (single/project/announcement): ${submission.whatsNew}
-What they want listeners to take away from their music: ${submission.takeaway}
-Bio, in the artist's own words: ${submission.bio}
+How they got started in music: ${submission.origin || "(not provided)"}
+Biggest inspiration (person or thing): ${submission.biggestInspiration || "(not provided)"}
+What's new (single/project/announcement): ${submission.whatsNew || "(not provided)"}
+What they want listeners to take away from their music: ${submission.takeaway || "(not provided)"}
+Bio, in the artist's own words: ${submission.bio || "(not provided)"}
 Anything else fans should know (shows/projects/plans): ${submission.anythingElse || "(not provided)"}`;
 
   const message = await anthropic.messages.create({

@@ -12,6 +12,25 @@ export interface SocialPost {
   instagramHandle?: string | null;
 }
 
+// Accepts whatever an artist typed into the Instagram field -- a bare
+// handle ("lkwkai17", "@lkwkai17") or a full profile URL, with or without
+// "https://" -- and normalizes it to a full URL so it can be stored and
+// used downstream (extractInstagramHandle, article links) unchanged.
+export function normalizeInstagramInput(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const stripped = trimmed.replace(/^@/, "");
+
+  if (/^https?:\/\//i.test(stripped)) return stripped;
+  if (/(^|\.)instagram\.com/i.test(stripped)) {
+    return `https://${stripped.replace(/^\/+/, "")}`;
+  }
+
+  const handle = stripped.replace(/^\/+|\/+$/g, "");
+  return handle ? `https://instagram.com/${handle}` : null;
+}
+
 // Pulls the @handle out of a full Instagram profile URL
 // ("https://instagram.com/handle" / "https://www.instagram.com/handle/?x=1"
 // -> "handle"). Returns null if it doesn't look like an Instagram URL.

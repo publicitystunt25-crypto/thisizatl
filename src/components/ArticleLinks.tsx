@@ -7,10 +7,10 @@ export interface SourceCredit {
 // Artist-submission spotlights store their Instagram/music links in the same
 // `sources` field as rewritten-news credits, but they should read as a
 // personal call-to-action ("Follow X on Instagram"), not a generic
-// attribution box -- this is how we tell the two apart.
+// attribution box -- this is how we tell the two apart. Both fields are
+// optional on the submission form, so either one (or both) may be present.
 function isArtistLinks(sources: SourceCredit[]): boolean {
-  const tags = sources.map((s) => s.source);
-  return tags.includes("Instagram") && tags.includes("Music");
+  return sources.every((s) => s.source === "Instagram" || s.source === "Music");
 }
 
 export default function ArticleLinks({

@@ -6,11 +6,16 @@ import { slugify } from "@/lib/slug";
 import { processImageUpload } from "@/lib/image";
 import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
 import { sendSubmissionNotification } from "@/lib/email";
+import { normalizeInstagramInput } from "@/lib/social";
 
 function required(formData: FormData, field: string): string {
   const value = String(formData.get(field) || "").trim();
   if (!value) throw new Error(`${field} is required`);
   return value;
+}
+
+function optional(formData: FormData, field: string): string | null {
+  return String(formData.get(field) || "").trim() || null;
 }
 
 export async function submitArtistAction(formData: FormData): Promise<void> {
@@ -23,15 +28,17 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   const submission: ArtistSubmission = {
     artistName: required(formData, "artistName"),
     pronouns: required(formData, "pronouns"),
+    hometown: optional(formData, "hometown"),
     genre: required(formData, "genre"),
-    origin: required(formData, "origin"),
-    biggestInspiration: required(formData, "biggestInspiration"),
-    whatsNew: required(formData, "whatsNew"),
-    takeaway: required(formData, "takeaway"),
-    bio: required(formData, "bio"),
-    instagramUrl: required(formData, "instagramUrl"),
-    musicUrl: required(formData, "musicUrl"),
-    anythingElse: String(formData.get("anythingElse") || "").trim() || null,
+    origin: optional(formData, "origin"),
+    biggestInspiration: optional(formData, "biggestInspiration"),
+    whatsNew: optional(formData, "whatsNew"),
+    takeaway: optional(formData, "takeaway"),
+    bio: optional(formData, "bio"),
+    instagramUrl: normalizeInstagramInput(String(formData.get("instagramUrl") || "")),
+    musicUrl: optional(formData, "musicUrl"),
+    followsInstagram: formData.get("followsInstagram") === "yes",
+    anythingElse: optional(formData, "anythingElse"),
   };
 
   const submitterEmail = required(formData, "submitterEmail");
@@ -55,15 +62,20 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
 
   const article = await generateSpotlightArticle(submission);
 
+  const sources: { title: string; url: string; source: string }[] = [];
+  if (submission.instagramUrl) {
+    sources.push({ title: "Follow on Instagram", url: submission.instagramUrl, source: "Instagram" });
+  }
+  if (submission.musicUrl) {
+    sources.push({ title: "Listen", url: submission.musicUrl, source: "Music" });
+  }
+
   const slug = slugify(article.title);
   const id = await insertPost({
     slug,
     title: article.title,
     body: article.body,
-    sources: [
-      { title: "Follow on Instagram", url: submission.instagramUrl, source: "Instagram" },
-      { title: "Listen", url: submission.musicUrl, source: "Music" },
-    ],
+    sources,
     similarity_note: null,
     image_url: null,
     image_credit_name: null,

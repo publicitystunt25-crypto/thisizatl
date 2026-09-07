@@ -16,9 +16,11 @@ export async function sendSubmissionNotification(
   const text = `New artist submission: ${submission.artistName}
 
 Pronouns: ${submission.pronouns}
+Hometown: ${submission.hometown || "(not provided)"}
 Genre: ${submission.genre}
-Instagram: ${submission.instagramUrl}
-Music: ${submission.musicUrl}
+Instagram: ${submission.instagramUrl || "(not provided)"}
+Music: ${submission.musicUrl || "(not provided)"}
+Following ThisIzATL: ${submission.followsInstagram ? "Yes" : "No"}
 
 Review it here: ${reviewUrl}`;
 
@@ -62,7 +64,7 @@ Your feature is live on ThisIzATL!
 "${title}"
 ${url}
 
-Feel free to share the link with your fans.
+Feel free to share the link with your fans, and follow and tag ThisIzATL on Instagram @ThisizATL.
 
 -- ThisIzATL`;
 
