@@ -116,6 +116,7 @@ function PostRow({
               </button>
             </form>
             <ScheduleControl
+              postTitle={post.title}
               minValue={toEasternDatetimeLocalValue(new Date().toISOString())}
               action={async (formData: FormData) => {
                 "use server";
