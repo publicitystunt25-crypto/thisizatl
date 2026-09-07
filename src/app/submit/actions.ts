@@ -21,6 +21,7 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
 
   const submission: ArtistSubmission = {
     artistName: required(formData, "artistName"),
+    pronouns: required(formData, "pronouns"),
     genre: required(formData, "genre"),
     origin: required(formData, "origin"),
     biggestInspiration: required(formData, "biggestInspiration"),

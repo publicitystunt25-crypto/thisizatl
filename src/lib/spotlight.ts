@@ -22,6 +22,8 @@ Follow these rules strictly:
    not to pad with filler or repeat the same point in different words.
 5. TONE. Clean, warm, neutral local-culture voice -- genuinely introducing a new artist to an
    Atlanta audience, not an ad.
+6. PRONOUNS. Use exactly the pronouns given in the submission's "Pronouns" field for the artist.
+   Never guess gender from their stage name, handle, or genre.
 
 Also classify the post into exactly one category: "Music", "Entertainment", "Fashion", or "Culture"
 (pick whichever best fits what the artist actually does -- most submissions will be "Music").
@@ -53,6 +55,7 @@ const PUBLISH_TOOL: Anthropic.Tool = {
 
 export interface ArtistSubmission {
   artistName: string;
+  pronouns: string;
   genre: string;
   origin: string;
   biggestInspiration: string;
@@ -74,6 +77,7 @@ export async function generateSpotlightArticle(
   submission: ArtistSubmission
 ): Promise<SpotlightArticle> {
   const submissionBlock = `Artist/stage name: ${submission.artistName}
+Pronouns: ${submission.pronouns}
 Genre: ${submission.genre}
 How they got started in music: ${submission.origin}
 Biggest inspiration (person or thing): ${submission.biggestInspiration}

@@ -49,6 +49,20 @@ export default function SubmitPage() {
           </div>
 
           <div>
+            <label className={labelClasses}>
+              What pronouns should we use for you in the article?
+            </label>
+            <select name="pronouns" required defaultValue="" className={inputClasses}>
+              <option value="" disabled>
+                Select one
+              </option>
+              <option value="she/her">She/Her</option>
+              <option value="he/him">He/Him</option>
+              <option value="they/them">They/Them</option>
+            </select>
+          </div>
+
+          <div>
             <label className={labelClasses}>Genre</label>
             <input
               type="text"
