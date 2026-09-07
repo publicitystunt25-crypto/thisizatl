@@ -7,19 +7,26 @@ import sharp from "sharp";
 export async function processImageUpload(
   buffer: Buffer,
   maxWidth: number
-): Promise<{ buffer: Buffer; mime: string }> {
-  const resized = await sharp(buffer)
+): Promise<{ buffer: Buffer; mime: string; width: number; height: number }> {
+  const resized = sharp(buffer)
     .rotate()
     .resize({ width: maxWidth, withoutEnlargement: true })
-    .jpeg({ quality: 82, mozjpeg: true })
-    .toBuffer();
-  return { buffer: resized, mime: "image/jpeg" };
+    .jpeg({ quality: 82, mozjpeg: true });
+  const out = await resized.toBuffer({ resolveWithObject: true });
+  return {
+    buffer: out.data,
+    mime: "image/jpeg",
+    width: out.info.width,
+    height: out.info.height,
+  };
 }
 
 export interface StockPhoto {
   url: string;
   credit_name: string;
   credit_url: string;
+  width: number;
+  height: number;
 }
 
 // Looks up a topic-matched stock photo via Pexels (free, attribution-friendly —
@@ -46,6 +53,8 @@ export async function fetchStockPhoto(
       url: photo.src.large,
       credit_name: photo.photographer,
       credit_url: photo.photographer_url,
+      width: photo.width,
+      height: photo.height,
     };
   } catch {
     return null;

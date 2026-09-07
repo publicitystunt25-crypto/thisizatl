@@ -48,7 +48,19 @@ export default async function AdminPostPreviewPage({
 
         {post.image_url && (
           <div className="mt-8">
-            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-zinc-100">
+            <div
+              className={`relative w-full overflow-hidden rounded-xl bg-zinc-100 ${
+                post.image_width && post.image_height ? "" : "aspect-[16/9]"
+              }`}
+              style={
+                post.image_width && post.image_height
+                  ? {
+                      aspectRatio: `${post.image_width} / ${post.image_height}`,
+                      maxHeight: "75vh",
+                    }
+                  : undefined
+              }
+            >
               <Image
                 src={post.image_url}
                 alt=""

@@ -36,6 +36,8 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS author TEXT;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_credit TEXT;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_width INTEGER;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_height INTEGER;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -67,6 +69,8 @@ export interface Post {
   author: string | null;
   created_at: string;
   is_featured: boolean;
+  image_width: number | null;
+  image_height: number | null;
 }
 
 export interface PostImage {
@@ -88,11 +92,13 @@ export async function insertPost(post: {
   status?: "draft" | "published";
   author?: string | null;
   created_at?: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
 }): Promise<number> {
   await ensureInit();
   const res = await pool.query<{ id: number }>(
-    `INSERT INTO posts (slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, category, status, author, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, now()))
+    `INSERT INTO posts (slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, category, status, author, created_at, image_width, image_height)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, now()), $13, $14)
      RETURNING id`,
     [
       post.slug,
@@ -107,6 +113,8 @@ export async function insertPost(post: {
       post.status ?? "published",
       post.author ?? null,
       post.created_at ?? null,
+      post.image_width ?? null,
+      post.image_height ?? null,
     ]
   );
   return res.rows[0].id;
@@ -158,13 +166,23 @@ export async function setPostImage(
   data: Buffer,
   mime: string,
   imageUrl: string,
-  credit?: string | null
+  credit?: string | null,
+  dimensions?: { width: number; height: number } | null
 ): Promise<void> {
   await ensureInit();
   await pool.query(
     `UPDATE posts SET image_data = $1, image_mime = $2, image_url = $3,
-     image_credit_name = NULL, image_credit_url = NULL, image_credit = $5 WHERE id = $4`,
-    [data, mime, imageUrl, id, credit ?? null]
+     image_credit_name = NULL, image_credit_url = NULL, image_credit = $5,
+     image_width = $6, image_height = $7 WHERE id = $4`,
+    [
+      data,
+      mime,
+      imageUrl,
+      id,
+      credit ?? null,
+      dimensions?.width ?? null,
+      dimensions?.height ?? null,
+    ]
   );
 }
 
@@ -257,14 +275,14 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
   await ensureInit();
   if (category) {
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height
        FROM posts WHERE category = $1 AND status = 'published' ORDER BY created_at DESC`,
       [category]
     );
     return res.rows;
   }
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height
      FROM posts WHERE status = 'published' ORDER BY created_at DESC`
   );
   return res.rows;
@@ -273,7 +291,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -282,7 +300,7 @@ export async function getAllPostsAdmin(): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height
      FROM posts WHERE id = $1`,
     [id]
   );
@@ -293,7 +311,7 @@ export const getPostBySlug = cache(
   async (slug: string): Promise<Post | undefined> => {
     await ensureInit();
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height
        FROM posts WHERE slug = $1 AND status = 'published'`,
       [slug]
     );

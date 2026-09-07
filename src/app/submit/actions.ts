@@ -70,8 +70,8 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   });
 
   const raw = Buffer.from(await photo.arrayBuffer());
-  const { buffer, mime } = await processImageUpload(raw, 1600);
-  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName);
+  const { buffer, mime, width, height } = await processImageUpload(raw, 1600);
+  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName, { width, height });
 
   redirect("/submit/thanks");
 }

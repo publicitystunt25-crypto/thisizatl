@@ -175,6 +175,8 @@ export async function runPipeline(maxClusters = 6): Promise<PipelineLogEntry[]> 
         image_credit_name: photo?.credit_name ?? null,
         image_credit_url: photo?.credit_url ?? null,
         category: generated.category,
+        image_width: photo?.width ?? null,
+        image_height: photo?.height ?? null,
       });
 
       await shareNewPost({ id: newId, title: generated.title, slug, image_url: photo?.url ?? null });
