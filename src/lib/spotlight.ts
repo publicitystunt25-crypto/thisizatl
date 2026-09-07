@@ -51,9 +51,8 @@ const PUBLISH_TOOL: Anthropic.Tool = {
 
 export interface ArtistSubmission {
   artistName: string;
-  realName: string | null;
   genre: string;
-  atlantaConnection: string;
+  biggestInspiration: string;
   whatsNew: string;
   bio: string;
   instagramUrl: string;
@@ -70,9 +69,8 @@ export async function generateSpotlightArticle(
   submission: ArtistSubmission
 ): Promise<SpotlightArticle> {
   const submissionBlock = `Artist/stage name: ${submission.artistName}
-Real name: ${submission.realName || "(not provided)"}
 Genre: ${submission.genre}
-Atlanta connection: ${submission.atlantaConnection}
+Biggest inspiration (person or thing): ${submission.biggestInspiration}
 What's new (single/project/announcement): ${submission.whatsNew}
 Bio, in the artist's own words: ${submission.bio}`;
 

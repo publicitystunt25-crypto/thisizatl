@@ -49,11 +49,6 @@ export default function SubmitPage() {
           </div>
 
           <div>
-            <label className={labelClasses}>Real Name (optional)</label>
-            <input type="text" name="realName" className={inputClasses} />
-          </div>
-
-          <div>
             <label className={labelClasses}>Genre</label>
             <input
               type="text"
@@ -65,12 +60,13 @@ export default function SubmitPage() {
           </div>
 
           <div>
-            <label className={labelClasses}>Your Atlanta Connection</label>
+            <label className={labelClasses}>
+              Who or what is your biggest inspiration?
+            </label>
             <input
               type="text"
-              name="atlantaConnection"
+              name="biggestInspiration"
               required
-              placeholder="e.g. born and raised in East Point"
               className={inputClasses}
             />
           </div>

@@ -21,9 +21,8 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
 
   const submission: ArtistSubmission = {
     artistName: required(formData, "artistName"),
-    realName: String(formData.get("realName") || "").trim() || null,
     genre: required(formData, "genre"),
-    atlantaConnection: required(formData, "atlantaConnection"),
+    biggestInspiration: required(formData, "biggestInspiration"),
     whatsNew: required(formData, "whatsNew"),
     bio: required(formData, "bio"),
     instagramUrl: required(formData, "instagramUrl"),
