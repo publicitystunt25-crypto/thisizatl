@@ -4,6 +4,7 @@ import { generateArticle, SourceInput } from "./generate";
 import { checkDuplicate } from "./dedup";
 import { fetchStockPhoto } from "./image";
 import { shareNewPost, extractInstagramHandle } from "./social";
+import { sendArticleLiveNotification } from "./email";
 import {
   hasSeenLink,
   markLinkSeen,
@@ -233,6 +234,14 @@ export async function publishDueScheduledPosts(): Promise<{ id: number; title: s
       instagramHandle,
     });
     await setSocialShared(post.id, shared);
+
+    if (post.submitter_email) {
+      try {
+        await sendArticleLiveNotification(post.submitter_email, post.image_credit || "there", post.title, post.slug);
+      } catch (err) {
+        console.error("Article-live notification email failed:", err);
+      }
+    }
 
     published.push({ id: post.id, title: post.title });
   }

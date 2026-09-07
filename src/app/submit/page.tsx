@@ -176,6 +176,19 @@ export default function SubmitPage() {
             />
           </div>
 
+          <div>
+            <label className={labelClasses}>
+              Email address to contact you if your article is approved
+            </label>
+            <input
+              type="email"
+              name="submitterEmail"
+              required
+              placeholder="you@email.com"
+              className={inputClasses}
+            />
+          </div>
+
           <SubmitButton />
         </form>
       </main>

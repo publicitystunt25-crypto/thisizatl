@@ -34,6 +34,8 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
     anythingElse: String(formData.get("anythingElse") || "").trim() || null,
   };
 
+  const submitterEmail = required(formData, "submitterEmail");
+
   const photo = formData.get("photo");
   if (!(photo instanceof File) || photo.size === 0) {
     throw new Error("A photo is required");
@@ -69,6 +71,7 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
     category: article.category,
     status: "draft",
     author: "ThisIzATL Staff",
+    submitter_email: submitterEmail,
   });
 
   const raw = Buffer.from(await photo.arrayBuffer());

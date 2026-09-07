@@ -28,6 +28,7 @@ import {
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 import { shareNewPost, extractInstagramHandle } from "@/lib/social";
+import { sendArticleLiveNotification } from "@/lib/email";
 import { fromEasternDatetimeLocalValue } from "@/lib/date";
 import { processImageUpload } from "@/lib/image";
 
@@ -265,6 +266,14 @@ export async function approvePostAction(id: number): Promise<void> {
   });
   await setSocialShared(post.id, shared);
   await clearSchedule(post.id);
+
+  if (post.submitter_email) {
+    try {
+      await sendArticleLiveNotification(post.submitter_email, post.image_credit || "there", post.title, post.slug);
+    } catch (err) {
+      console.error("Article-live notification email failed:", err);
+    }
+  }
 
   revalidatePath("/");
   revalidatePath("/admin");
