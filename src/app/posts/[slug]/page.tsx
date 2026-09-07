@@ -77,14 +77,15 @@ export default async function PostPage({
         {post.image_url && (
           <div className="mt-8">
             <div
-              className={`relative w-full overflow-hidden rounded-xl bg-zinc-100 ${
-                post.image_width && post.image_height ? "" : "aspect-[16/9]"
+              className={`relative mx-auto max-w-full overflow-hidden rounded-xl bg-zinc-100 ${
+                post.image_width && post.image_height ? "" : "aspect-[16/9] w-full"
               }`}
               style={
                 post.image_width && post.image_height
                   ? {
                       aspectRatio: `${post.image_width} / ${post.image_height}`,
                       maxHeight: "75vh",
+                      width: `min(100%, calc(75vh * ${post.image_width} / ${post.image_height}))`,
                     }
                   : undefined
               }
