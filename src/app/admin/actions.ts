@@ -247,6 +247,12 @@ export async function approvePostAction(id: number): Promise<void> {
   const post = await getPostById(id);
   if (!post) throw new Error("Post not found");
 
+  // Guards against double-posting to Facebook/Instagram if this action fires
+  // twice for the same click -- e.g. a slow request getting silently retried
+  // by the browser or a proxy. A post that's already published has nothing
+  // left to do here.
+  if (post.status === "published") return;
+
   await updatePost(id, {
     slug: post.slug,
     title: post.title,
