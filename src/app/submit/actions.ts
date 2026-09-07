@@ -5,7 +5,8 @@ import { insertPost, setPostImage, hasRecentSubmissionByArtist } from "@/lib/db"
 import { slugify } from "@/lib/slug";
 import { processImageUpload } from "@/lib/image";
 import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
-import { sendSubmissionNotification } from "@/lib/email";
+import { generateProfileArticle, ProfileSubmission } from "@/lib/profile";
+import { sendSubmissionNotification, sendOtherSubmissionNotification } from "@/lib/email";
 import { normalizeInstagramInput } from "@/lib/social";
 
 function required(formData: FormData, field: string): string {
@@ -92,6 +93,83 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
 
   try {
     await sendSubmissionNotification(submission, id);
+  } catch (err) {
+    console.error("Submission notification email failed:", err);
+  }
+
+  redirect("/submit/thanks");
+}
+
+export async function submitOtherAction(formData: FormData): Promise<void> {
+  // Honeypot: real visitors never see or fill this field (hidden via CSS),
+  // so anything in it means an automated bot filled out every input blindly.
+  if (String(formData.get("company") || "").trim()) {
+    redirect("/");
+  }
+
+  const submission: ProfileSubmission = {
+    name: required(formData, "name"),
+    pronouns: required(formData, "pronouns"),
+    hometown: optional(formData, "hometown"),
+    profession: required(formData, "profession"),
+    origin: required(formData, "origin"),
+    biggestInspiration: required(formData, "biggestInspiration"),
+    whatsNew: required(formData, "whatsNew"),
+    takeaway: optional(formData, "takeaway"),
+    bio: optional(formData, "bio"),
+    instagramUrl: normalizeInstagramInput(String(formData.get("instagramUrl") || "")),
+    linkUrl: optional(formData, "linkUrl"),
+    followsInstagram: formData.get("followsInstagram") === "yes",
+    anythingElse: optional(formData, "anythingElse"),
+  };
+
+  const submitterEmail = required(formData, "submitterEmail");
+
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    throw new Error("A photo is required");
+  }
+  if (!photo.type.startsWith("image/")) {
+    throw new Error("Uploaded file is not an image");
+  }
+
+  // Same duplicate-submission guard as the artist path, keyed by name.
+  if (await hasRecentSubmissionByArtist(submission.name)) {
+    redirect("/submit/thanks");
+  }
+
+  const article = await generateProfileArticle(submission);
+
+  const sources: { title: string; url: string; source: string }[] = [];
+  if (submission.instagramUrl) {
+    sources.push({ title: "Follow on Instagram", url: submission.instagramUrl, source: "Instagram" });
+  }
+  if (submission.linkUrl) {
+    sources.push({ title: "Visit", url: submission.linkUrl, source: "Website" });
+  }
+
+  const slug = slugify(article.title);
+  const id = await insertPost({
+    slug,
+    title: article.title,
+    body: article.body,
+    sources,
+    similarity_note: null,
+    image_url: null,
+    image_credit_name: null,
+    image_credit_url: null,
+    category: article.category,
+    status: "draft",
+    author: "ThisIzATL Staff",
+    submitter_email: submitterEmail,
+  });
+
+  const raw = Buffer.from(await photo.arrayBuffer());
+  const { buffer, mime, width, height } = await processImageUpload(raw, 1600);
+  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.name, { width, height });
+
+  try {
+    await sendOtherSubmissionNotification(submission, id);
   } catch (err) {
     console.error("Submission notification email failed:", err);
   }

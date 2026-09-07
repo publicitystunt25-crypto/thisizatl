@@ -1,0 +1,118 @@
+import Anthropic from "@anthropic-ai/sdk";
+import type { Category } from "./generate";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const MODEL = "claude-sonnet-5";
+
+// Sibling to spotlight.ts's artist-submission generator, but for anyone
+// else worth featuring -- entrepreneurs, business owners, chefs, community
+// figures, etc. Kept as a fully separate prompt/tool/interface rather than
+// branching the artist one, so tuning this never risks the artist path.
+const SYSTEM_PROMPT = `You are a feature writer for ThisIzATL, an Atlanta music, entertainment, and
+culture blog. You've received a submission directly from a person (or their team) through an intake
+form -- an entrepreneur, business owner, or other local figure, not a musician -- and must write an
+original short profile introducing them to readers. Follow these rules strictly:
+
+1. FACTS ONLY FROM THE SUBMISSION. Only use what they actually told you. Never invent numbers,
+   awards, press coverage, or achievements that weren't stated.
+2. NO UNCHECKED SUPERLATIVES. If the submission includes self-promotional claims ("the best in
+   Atlanta", "going viral", "next big thing"), don't restate them as fact. Either drop them, or
+   attribute them explicitly as their own framing (e.g. "as they put it...").
+3. THIRD PERSON, FEATURE VOICE. Write like a real profile piece, not a rewritten form -- weave the
+   details into a natural short feature rather than answering the submitted questions in order.
+4. LENGTH. 220-320 words (roughly 5 short paragraphs) -- use the extra room to actually develop
+   their story (how they got started, what they do, their current focus, what's next), not to pad
+   with filler or repeat the same point in different words. Most fields are optional, so some
+   submissions will be sparse -- write the best feature you can from whatever was actually
+   provided rather than treating missing fields as something to comment on.
+5. TONE. Clean, warm, neutral local-culture voice -- genuinely introducing a local figure to an
+   Atlanta audience, not an ad.
+6. PRONOUNS. Use exactly the pronouns given in the submission's "Pronouns" field for the person.
+   Never guess gender from their name or profession.
+
+Also classify the post into exactly one category: "Entertainment", "News", "Sports", "Fashion", or
+"Events" (pick whichever best fits what they actually do).
+
+Also propose a short headline for the piece.
+
+Call the publish_profile tool with your finished post. Do not respond with plain text.`;
+
+const PUBLISH_TOOL: Anthropic.Tool = {
+  name: "publish_profile",
+  description: "Publish the finished profile feature.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Short headline, in your own wording." },
+      body: {
+        type: "string",
+        description: "The 220-320 word article body, with \\n\\n between paragraphs.",
+      },
+      category: {
+        type: "string",
+        enum: ["Entertainment", "News", "Sports", "Fashion", "Events"],
+        description: "The single best-fit category for this post.",
+      },
+    },
+    required: ["title", "body", "category"],
+  },
+};
+
+export interface ProfileSubmission {
+  name: string;
+  pronouns: string;
+  hometown: string | null;
+  profession: string;
+  origin: string;
+  biggestInspiration: string;
+  whatsNew: string;
+  takeaway: string | null;
+  bio: string | null;
+  instagramUrl: string | null;
+  linkUrl: string | null;
+  followsInstagram: boolean;
+  anythingElse: string | null;
+}
+
+export interface ProfileArticle {
+  title: string;
+  body: string;
+  category: Category;
+}
+
+export async function generateProfileArticle(
+  submission: ProfileSubmission
+): Promise<ProfileArticle> {
+  const submissionBlock = `Name: ${submission.name}
+Pronouns: ${submission.pronouns}
+Hometown: ${submission.hometown || "(not provided)"}
+What they do professionally: ${submission.profession}
+How they got started: ${submission.origin}
+Biggest inspiration (person or thing): ${submission.biggestInspiration}
+What they're currently working on or have coming up: ${submission.whatsNew}
+What they want people to take away from their work: ${submission.takeaway || "(not provided)"}
+Bio, in their own words: ${submission.bio || "(not provided)"}
+Anything else people should know: ${submission.anythingElse || "(not provided)"}`;
+
+  const message = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 1000,
+    system: SYSTEM_PROMPT,
+    tools: [PUBLISH_TOOL],
+    tool_choice: { type: "tool", name: "publish_profile" },
+    messages: [
+      {
+        role: "user",
+        content: `Here is their submission:\n\n${submissionBlock}\n\nWrite the profile feature per your instructions.`,
+      },
+    ],
+  });
+
+  const toolUse = message.content.find((b) => b.type === "tool_use");
+  if (!toolUse || toolUse.type !== "tool_use") {
+    throw new Error("Claude did not call the publish_profile tool");
+  }
+
+  return toolUse.input as ProfileArticle;
+}

@@ -4,13 +4,15 @@ export interface SourceCredit {
   source: string;
 }
 
-// Artist-submission spotlights store their Instagram/music links in the same
-// `sources` field as rewritten-news credits, but they should read as a
-// personal call-to-action ("Follow X on Instagram"), not a generic
-// attribution box -- this is how we tell the two apart. Both fields are
-// optional on the submission form, so either one (or both) may be present.
-function isArtistLinks(sources: SourceCredit[]): boolean {
-  return sources.every((s) => s.source === "Instagram" || s.source === "Music");
+// Submission spotlights (artists and general profiles) store their
+// Instagram/music/website links in the same `sources` field as rewritten-news
+// credits, but they should read as a personal call-to-action ("Follow X on
+// Instagram"), not a generic attribution box -- this is how we tell the two
+// apart. Every field is optional on the submission forms, so any subset may
+// be present.
+const SUBMISSION_TAGS = ["Instagram", "Music", "Website"];
+function isSubmissionLinks(sources: SourceCredit[]): boolean {
+  return sources.every((s) => SUBMISSION_TAGS.includes(s.source));
 }
 
 export default function ArticleLinks({
@@ -22,9 +24,10 @@ export default function ArticleLinks({
 }) {
   if (sources.length === 0) return null;
 
-  if (isArtistLinks(sources)) {
+  if (isSubmissionLinks(sources)) {
     const instagram = sources.find((s) => s.source === "Instagram");
     const music = sources.find((s) => s.source === "Music");
+    const website = sources.find((s) => s.source === "Website");
     const name = artistName || "the artist";
 
     return (
@@ -50,6 +53,18 @@ export default function ArticleLinks({
               className="font-medium text-brand-dark hover:underline"
             >
               Check out {name}&rsquo;s music here
+            </a>
+          </p>
+        )}
+        {website && (
+          <p>
+            <a
+              href={website.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-brand-dark hover:underline"
+            >
+              Check out {name}&rsquo;s website here
             </a>
           </p>
         )}
