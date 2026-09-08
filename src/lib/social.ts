@@ -131,6 +131,30 @@ async function createStoryContainer(
   return { id };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Polls a media container's processing status. Instagram fetches and
+// transcodes the image asynchronously after creation -- publishing before
+// status_code reaches FINISHED fails with a transient "not ready" error.
+// Gives up after ~20s (image fetch/processing is normally sub-second to a
+// few seconds) so a stuck container can't hang the whole share indefinitely.
+async function waitForContainerReady(creationId: string, token: string): Promise<void> {
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    const res = await fetch(
+      `${GRAPH_BASE}/${creationId}?fields=status_code&access_token=${token}`
+    );
+    if (res.ok) {
+      const { status_code: status } = (await res.json()) as { status_code: string };
+      if (status === "FINISHED") return;
+      if (status === "ERROR") throw new Error("Instagram container processing failed");
+    }
+    await sleep(1500);
+  }
+}
+
 async function postToInstagramStory(post: SocialPost): Promise<void> {
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
   const token = process.env.FB_PAGE_ACCESS_TOKEN;
@@ -163,6 +187,12 @@ async function postToInstagramStory(post: SocialPost): Promise<void> {
   }
 
   const { id: creationId } = result;
+
+  // Instagram needs a moment to fetch/process the container's image before
+  // it's publishable -- publishing immediately after creation intermittently
+  // fails with "Media ID is not available... not ready for publishing".
+  // Poll status_code until it's FINISHED (or ERROR/timeout) before publishing.
+  await waitForContainerReady(creationId, token);
 
   const publishRes = await fetch(`${GRAPH_BASE}/${igUserId}/media_publish`, {
     method: "POST",
