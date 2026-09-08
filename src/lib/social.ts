@@ -94,6 +94,39 @@ export async function deleteFacebookPost(fbPostId: string): Promise<boolean> {
   return true;
 }
 
+// Attempts to create the Story container, optionally with a user_tags
+// mention. Meta rejects the *entire* container -- not just the tag -- if the
+// tagged account can't be tagged (private, invalid, or their own "who can
+// tag me" setting restricted), so a bad tag would otherwise fail the whole
+// Story. Returns the creation id, or null if the request failed.
+async function createStoryContainer(
+  imageUrl: string,
+  token: string,
+  igUserId: string,
+  userTag?: { username: string; x: number; y: number }
+): Promise<{ id: string } | { error: string }> {
+  const body: Record<string, unknown> = {
+    image_url: imageUrl,
+    media_type: "STORIES",
+    access_token: token,
+  };
+  if (userTag) {
+    body.user_tags = [userTag];
+  }
+
+  const res = await fetch(`${GRAPH_BASE}/${igUserId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    return { error: await res.text() };
+  }
+  const { id } = (await res.json()) as { id: string };
+  return { id };
+}
+
 async function postToInstagramStory(post: SocialPost): Promise<void> {
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
   const token = process.env.FB_PAGE_ACCESS_TOKEN;
@@ -103,33 +136,29 @@ async function postToInstagramStory(post: SocialPost): Promise<void> {
   // burned into the image, since Instagram's API doesn't support link stickers.
   const imageUrl = `${SITE_URL}/api/story-image/${post.id}`;
 
-  const body: Record<string, unknown> = {
-    image_url: imageUrl,
-    media_type: "STORIES",
-    access_token: token,
-  };
-  // Tagged accounts must be public, or Instagram silently drops the tag
-  // rather than erroring -- this is a best-effort mention, not guaranteed.
   // x/y are required for the tag to render as a visible mention sticker on
   // the Story (omitting them attaches the tag as metadata only, with no
   // visible sticker) -- placed near the top, clear of the headline/CTA text
   // burned into the bottom of the image.
-  if (post.instagramHandle) {
-    body.user_tags = [{ username: post.instagramHandle, x: 0.5, y: 0.08 }];
+  const userTag = post.instagramHandle
+    ? { username: post.instagramHandle, x: 0.5, y: 0.08 }
+    : undefined;
+
+  let result = await createStoryContainer(imageUrl, token, igUserId, userTag);
+
+  if ("error" in result && userTag) {
+    console.error(
+      `Instagram tag failed for @${userTag.username}, retrying without tag:`,
+      result.error
+    );
+    result = await createStoryContainer(imageUrl, token, igUserId);
   }
 
-  const createRes = await fetch(`${GRAPH_BASE}/${igUserId}/media`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!createRes.ok) {
-    const body = await createRes.text();
-    throw new Error(`Instagram story container failed: ${createRes.status} ${body}`);
+  if ("error" in result) {
+    throw new Error(`Instagram story container failed: ${result.error}`);
   }
 
-  const { id: creationId } = (await createRes.json()) as { id: string };
+  const { id: creationId } = result;
 
   const publishRes = await fetch(`${GRAPH_BASE}/${igUserId}/media_publish`, {
     method: "POST",
