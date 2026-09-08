@@ -10,6 +10,10 @@ export interface SocialPost {
   // Instagram @handle (no @, no URL) to tag/mention in the Story, e.g. for
   // artist-submitted spotlights -- tagged accounts must be public.
   instagramHandle?: string | null;
+  // Set when a previous share attempt already posted to Facebook
+  // successfully (e.g. a retry after only Instagram failed) -- skips
+  // re-posting to Facebook so a retry can't create a duplicate there.
+  existingFbPostId?: string | null;
 }
 
 // Accepts whatever an artist typed into the Instagram field -- a bare
@@ -153,7 +157,7 @@ export interface ShareResult {
 // of the failure vanishing silently.
 export async function shareNewPost(post: SocialPost): Promise<ShareResult> {
   const results = await Promise.allSettled([
-    postToFacebookPage(post),
+    post.existingFbPostId ? Promise.resolve(post.existingFbPostId) : postToFacebookPage(post),
     postToInstagramStory(post),
   ]);
 

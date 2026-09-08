@@ -329,6 +329,7 @@ export async function retrySocialShareAction(id: number): Promise<void> {
     slug: post.slug,
     image_url: post.image_url,
     instagramHandle,
+    existingFbPostId: post.fb_post_id,
   });
   await setSocialShared(post.id, result.ok, result.fbPostId);
 
