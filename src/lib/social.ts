@@ -38,12 +38,16 @@ export function normalizeInstagramInput(raw: string): string | null {
 // Pulls the @handle out of a full Instagram profile URL
 // ("https://instagram.com/handle" / "https://www.instagram.com/handle/?x=1"
 // -> "handle"). Returns null if it doesn't look like an Instagram URL.
+// Lowercased because Meta's tagging API is case-sensitive against the
+// username as stored (lowercase), even though instagram.com's own URLs
+// are case-insensitive -- an artist submitting "ROBJOFFICIAL" would
+// otherwise get "invalid username" and silently fail the whole tag.
 export function extractInstagramHandle(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
     const parsed = new URL(url);
     if (!/(^|\.)instagram\.com$/.test(parsed.hostname)) return null;
-    const handle = parsed.pathname.split("/").filter(Boolean)[0];
+    const handle = parsed.pathname.split("/").filter(Boolean)[0]?.toLowerCase();
     return handle || null;
   } catch {
     return null;
