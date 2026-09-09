@@ -110,7 +110,10 @@ export async function GET(
     headers: {
       "Content-Type": "image/jpeg",
       "Content-Length": String(composited.length),
-      "Cache-Control": "public, max-age=3600",
+      // no-store: this composite gets re-fetched by Meta at post time, and a
+      // cached stale response can otherwise serve an outdated version even
+      // after the code has been fixed and redeployed.
+      "Cache-Control": "no-store",
     },
   });
 }

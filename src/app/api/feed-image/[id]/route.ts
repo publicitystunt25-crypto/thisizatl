@@ -193,7 +193,11 @@ export async function GET(
     headers: {
       "Content-Type": "image/jpeg",
       "Content-Length": String(composited.length),
-      "Cache-Control": "public, max-age=3600",
+      // no-store, not a longer max-age: this endpoint gets iterated on and
+      // re-fetched by Meta at post time -- a cached stale response (e.g. via
+      // Cloudflare in front of Render) previously caused an old layout to
+      // get published even after the code was already fixed and redeployed.
+      "Cache-Control": "no-store",
     },
   });
 }
