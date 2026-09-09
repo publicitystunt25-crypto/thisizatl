@@ -151,9 +151,9 @@ export async function GET(
   // Wider lines (more chars each) instead of many short stacked lines --
   // keeps the block shorter vertically so it can actually sit centered in
   // the available space instead of running out of room near the edge.
-  const captionLines = wrapText(caption, 30, 4);
-  const captionLineHeight = 68;
-  const captionFontSize = 54;
+  const captionLines = wrapText(caption, 26, 4);
+  const captionLineHeight = 80;
+  const captionFontSize = 64;
 
   // Caption text first, logo mark below it -- both centered together within
   // the space below the divider.
