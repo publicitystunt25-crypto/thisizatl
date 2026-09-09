@@ -144,13 +144,27 @@ export async function GET(
   const wordmarkCornerWidth = 220;
   const wordmarkCorner = await sharp(wordmarkBuffer).resize({ width: wordmarkCornerWidth }).toBuffer();
 
-  const captionLines = wrapText(caption, 22, 4);
+  // Wider lines (more chars each) instead of many short stacked lines --
+  // keeps the block shorter vertically so it can actually sit centered in
+  // the space below the logo instead of running out of room near the edge.
+  const captionLines = wrapText(caption, 30, 4);
   const captionLineHeight = 68;
-  const captionStartY = PHOTO_HEIGHT + 40 + logoSize + 90;
+  const captionFontSize = 54;
+
+  // Center the whole text block within the space between the bottom of the
+  // logo and the bottom edge of the canvas, rather than anchoring a fixed
+  // number of lines near the bottom (which ran the last line off the edge
+  // for longer captions).
+  const logoBottom = PHOTO_HEIGHT + 40 + logoSize;
+  const blockHeight = captionLines.length * captionLineHeight;
+  const availableHeight = HEIGHT - 40 - logoBottom;
+  const blockTop = logoBottom + Math.max(40, (availableHeight - blockHeight) / 2);
+  const captionStartY = blockTop + captionFontSize * 0.8;
+
   const captionSvg = captionLines
     .map(
       (line, i) =>
-        `<text x="${WIDTH / 2}" y="${captionStartY + i * captionLineHeight}" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="60" fill="${BRAND_ORANGE}">${escapeXml(line)}</text>`
+        `<text x="${WIDTH / 2}" y="${captionStartY + i * captionLineHeight}" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="${captionFontSize}" fill="${BRAND_ORANGE}">${escapeXml(line)}</text>`
     )
     .join("");
 
