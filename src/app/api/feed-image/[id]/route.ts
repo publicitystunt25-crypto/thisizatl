@@ -158,10 +158,19 @@ export async function GET(
   // Caption text first, logo mark below it -- both centered together within
   // the space below the divider.
   const captionToLogoGap = 15;
+  const bottomMargin = 50;
   const captionBlockHeight = captionLines.length * captionLineHeight;
   const groupHeight = captionBlockHeight + captionToLogoGap + logoSize;
-  const availableHeight = HEIGHT - 40 - (PHOTO_HEIGHT + 30);
-  const groupTop = PHOTO_HEIGHT + 30 + Math.max(30, (availableHeight - groupHeight) / 2);
+  const availableHeight = HEIGHT - bottomMargin - (PHOTO_HEIGHT + 30);
+  // Clamp against the bottom edge, not just centered in the ideal case --
+  // a longer (3-4 line) caption can make groupHeight taller than
+  // availableHeight, and without this clamp the centering math pushes the
+  // logo down far enough to run past the canvas bottom with no margin at
+  // all (it just gets silently clipped by the compositor).
+  const groupTop = Math.min(
+    PHOTO_HEIGHT + 30 + Math.max(30, (availableHeight - groupHeight) / 2),
+    HEIGHT - bottomMargin - groupHeight
+  );
   const captionStartY = groupTop + captionFontSize * 0.8;
   const logoTop = groupTop + captionBlockHeight + captionToLogoGap;
 
