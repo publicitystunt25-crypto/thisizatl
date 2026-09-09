@@ -132,6 +132,59 @@ export interface GeneratedArticle {
   category: Category;
 }
 
+const CAPTION_SYSTEM_PROMPT = `You write Instagram captions for ThisIzATL, an Atlanta music/culture
+blog, for feed posts spotlighting an artist who submitted their own story. Follow these rules:
+
+1. OPEN WITH THEIR HANDLE AS THEIR NAME. Refer to the artist by their Instagram @handle in place
+   of their real name throughout the caption (e.g. "Flatbush native @mo.dubb didn't grow up in
+   Atlanta..."). Do not also state their real name.
+2. NEVER use the phrase "sits down with" or "sit down with" -- this is a hard style rule.
+3. Pull the actual hook/angle from the article body below, in your own words -- 2-4 short,
+   punchy sentences. Don't just restate the headline.
+4. End with a line telling readers to read the full story on ThisIzATL.com.
+5. No hashtags. At most one emoji, only if it feels natural -- otherwise none.
+
+Call the write_caption tool with the finished caption text only.`;
+
+const CAPTION_TOOL: Anthropic.Tool = {
+  name: "write_caption",
+  description: "Submit the finished Instagram caption.",
+  input_schema: {
+    type: "object",
+    properties: {
+      caption: { type: "string", description: "The finished Instagram caption text." },
+    },
+    required: ["caption"],
+  },
+};
+
+export async function generateFeedCaption(params: {
+  title: string;
+  body: string;
+  instagramHandle: string;
+}): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 500,
+    system: CAPTION_SYSTEM_PROMPT,
+    tools: [CAPTION_TOOL],
+    tool_choice: { type: "tool", name: "write_caption" },
+    messages: [
+      {
+        role: "user",
+        content: `Article title: ${params.title}\nArtist's Instagram handle: @${params.instagramHandle}\n\nArticle body:\n${params.body}\n\nWrite the caption per your instructions.`,
+      },
+    ],
+  });
+
+  const toolUse = message.content.find((b) => b.type === "tool_use");
+  if (!toolUse || toolUse.type !== "tool_use") {
+    throw new Error("Claude did not call the write_caption tool");
+  }
+
+  return (toolUse.input as { caption: string }).caption;
+}
+
 export async function generateArticle(
   sources: SourceInput[]
 ): Promise<GeneratedArticle> {

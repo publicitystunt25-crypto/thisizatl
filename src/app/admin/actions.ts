@@ -21,13 +21,15 @@ import {
   setFeaturedPost,
   unsetFeaturedPost,
   setSocialShared,
+  setIgFeedShared,
   schedulePost,
   cancelSchedule,
   clearSchedule,
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
-import { shareNewPost, extractInstagramHandle, deleteFacebookPost } from "@/lib/social";
+import { shareNewPost, postToInstagramFeed, extractInstagramHandle, deleteFacebookPost } from "@/lib/social";
+import { generateFeedCaption } from "@/lib/generate";
 import { sendArticleLiveNotification } from "@/lib/email";
 import { fromEasternDatetimeLocalValue } from "@/lib/date";
 import { processImageUpload } from "@/lib/image";
@@ -286,6 +288,80 @@ export async function approvePostAction(id: number): Promise<void> {
       await sendArticleLiveNotification(post.submitter_email, post.image_credit || "there", post.title, post.slug);
     } catch (err) {
       console.error("Article-live notification email failed:", err);
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+// Approves the post the same way approvePostAction does, then additionally
+// publishes it to the Instagram Feed (not just the Story) with a
+// Claude-written caption and a collaborator invite to the artist's own
+// account -- the collab invite is what actually triggers a notification to
+// them. Requires a valid Instagram handle on the submission; without one
+// there's nobody to invite, so this falls back to a plain approve.
+export async function acceptAllAction(id: number): Promise<void> {
+  await requireAdmin();
+  const post = await getPostById(id);
+  if (!post) throw new Error("Post not found");
+
+  let instagramHandle: string | null = null;
+  try {
+    const sources = JSON.parse(post.sources) as { source: string; url: string }[];
+    const igSource = sources.find((s) => s.source === "Instagram");
+    instagramHandle = extractInstagramHandle(igSource?.url);
+  } catch {
+    // sources isn't valid JSON or doesn't include an Instagram entry -- fine,
+    // just means no tag/collab gets attached.
+  }
+
+  if (post.status !== "published") {
+    await updatePost(id, {
+      slug: post.slug,
+      title: post.title,
+      body: post.body,
+      category: post.category,
+      status: "published",
+    });
+
+    const result = await shareNewPost({
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      image_url: post.image_url,
+      instagramHandle,
+    });
+    await setSocialShared(post.id, result.ok, result.fbPostId);
+    await clearSchedule(post.id);
+
+    if (post.submitter_email) {
+      try {
+        await sendArticleLiveNotification(post.submitter_email, post.image_credit || "there", post.title, post.slug);
+      } catch (err) {
+        console.error("Article-live notification email failed:", err);
+      }
+    }
+  }
+
+  if (instagramHandle && !post.ig_feed_shared) {
+    try {
+      const caption = await generateFeedCaption({
+        title: post.title,
+        body: post.body,
+        instagramHandle,
+      });
+      await postToInstagramFeed({
+        id: post.id,
+        title: post.title,
+        slug: post.slug,
+        image_url: post.image_url,
+        instagramHandle,
+        caption,
+      });
+      await setIgFeedShared(post.id, true);
+    } catch (err) {
+      console.error("Instagram feed publish failed:", err);
     }
   }
 

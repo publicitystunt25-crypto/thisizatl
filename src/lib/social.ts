@@ -140,6 +140,40 @@ async function createStoryContainer(
   return { id };
 }
 
+// Same pattern as createStoryContainer, but for a Feed post: caption is
+// required (Stories don't show captions), and collaborators (rather than
+// user_tags) is how a Feed post invites another account to co-author it --
+// that invite is what lands in the invited account's collab-request inbox
+// and triggers their notification.
+async function createFeedContainer(
+  imageUrl: string,
+  token: string,
+  igUserId: string,
+  caption: string,
+  collaborators?: string[]
+): Promise<{ id: string } | { error: string }> {
+  const body: Record<string, unknown> = {
+    image_url: imageUrl,
+    caption,
+    access_token: token,
+  };
+  if (collaborators && collaborators.length > 0) {
+    body.collaborators = collaborators;
+  }
+
+  const res = await fetch(`${GRAPH_BASE}/${igUserId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    return { error: await res.text() };
+  }
+  const { id } = (await res.json()) as { id: string };
+  return { id };
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -216,6 +250,56 @@ async function postToInstagramStory(post: SocialPost): Promise<void> {
     const body = await publishRes.text();
     throw new Error(`Instagram story publish failed: ${publishRes.status} ${body}`);
   }
+}
+
+// Publishes to the Instagram Feed (not a Story) using the branded feed-image
+// template, with a caption and an optional collaborator invite to the
+// artist's own account. Unlike Stories, a Feed post's collaborators list is
+// what generates a real collab invite in the invited account's inbox.
+export async function postToInstagramFeed(
+  post: SocialPost & { caption: string }
+): Promise<{ ok: boolean; mediaId: string | null }> {
+  const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
+  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  if (!igUserId || !token || !post.image_url) return { ok: false, mediaId: null };
+
+  // Cache-busted: this composite gets iterated on and re-fetched by Meta at
+  // post time, and a stale cached response previously caused an old layout
+  // to get published even after the underlying code was already fixed.
+  const imageUrl = `${SITE_URL}/api/feed-image/${post.id}?t=${Date.now()}`;
+
+  const collaborators = post.instagramHandle ? [post.instagramHandle] : undefined;
+
+  let result = await createFeedContainer(imageUrl, token, igUserId, post.caption, collaborators);
+
+  if ("error" in result && collaborators) {
+    console.error(
+      `Instagram feed collab invite failed for @${post.instagramHandle}, retrying without it:`,
+      result.error
+    );
+    result = await createFeedContainer(imageUrl, token, igUserId, post.caption);
+  }
+
+  if ("error" in result) {
+    throw new Error(`Instagram feed container failed: ${result.error}`);
+  }
+
+  const { id: creationId } = result;
+  await waitForContainerReady(creationId, token);
+
+  const publishRes = await fetch(`${GRAPH_BASE}/${igUserId}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ creation_id: creationId, access_token: token }),
+  });
+
+  if (!publishRes.ok) {
+    const body = await publishRes.text();
+    throw new Error(`Instagram feed publish failed: ${publishRes.status} ${body}`);
+  }
+
+  const { id: mediaId } = (await publishRes.json()) as { id: string };
+  return { ok: true, mediaId };
 }
 
 export interface ShareResult {

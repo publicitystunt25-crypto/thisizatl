@@ -8,6 +8,7 @@ import {
   setFeaturedPostAction,
   unsetFeaturedPostAction,
   approvePostAction,
+  acceptAllAction,
   retrySocialShareAction,
   schedulePostAction,
   cancelScheduleAction,
@@ -103,6 +104,16 @@ function PostRow({
             >
               <button type="submit" className="font-medium text-green-700 hover:underline">
                 Approve
+              </button>
+            </form>
+            <form
+              action={async () => {
+                "use server";
+                await acceptAllAction(post.id);
+              }}
+            >
+              <button type="submit" className="font-medium text-brand-dark hover:underline">
+                Accept All
               </button>
             </form>
             <form
