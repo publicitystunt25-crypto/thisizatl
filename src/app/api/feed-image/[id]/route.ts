@@ -134,7 +134,7 @@ export async function GET(
         : null;
   const photo = await cropToFocus(imgBuffer, WIDTH, PHOTO_HEIGHT, focus);
 
-  const logoSize = 130;
+  const logoSize = 190;
   const logo = await sharp(logoBuffer).resize(logoSize, logoSize).toBuffer();
 
   // Real wordmark asset (same file exported from the site's actual header
@@ -146,20 +146,20 @@ export async function GET(
 
   // Wider lines (more chars each) instead of many short stacked lines --
   // keeps the block shorter vertically so it can actually sit centered in
-  // the space below the logo instead of running out of room near the edge.
+  // the available space instead of running out of room near the edge.
   const captionLines = wrapText(caption, 30, 4);
   const captionLineHeight = 68;
   const captionFontSize = 54;
 
-  // Center the whole text block within the space between the bottom of the
-  // logo and the bottom edge of the canvas, rather than anchoring a fixed
-  // number of lines near the bottom (which ran the last line off the edge
-  // for longer captions).
-  const logoBottom = PHOTO_HEIGHT + 40 + logoSize;
-  const blockHeight = captionLines.length * captionLineHeight;
-  const availableHeight = HEIGHT - 40 - logoBottom;
-  const blockTop = logoBottom + Math.max(40, (availableHeight - blockHeight) / 2);
-  const captionStartY = blockTop + captionFontSize * 0.8;
+  // Caption text first, logo mark below it -- both centered together within
+  // the space below the divider.
+  const captionToLogoGap = 15;
+  const captionBlockHeight = captionLines.length * captionLineHeight;
+  const groupHeight = captionBlockHeight + captionToLogoGap + logoSize;
+  const availableHeight = HEIGHT - 40 - (PHOTO_HEIGHT + 30);
+  const groupTop = PHOTO_HEIGHT + 30 + Math.max(30, (availableHeight - groupHeight) / 2);
+  const captionStartY = groupTop + captionFontSize * 0.8;
+  const logoTop = groupTop + captionBlockHeight + captionToLogoGap;
 
   const captionSvg = captionLines
     .map(
@@ -183,7 +183,7 @@ export async function GET(
         top: 30,
         left: WIDTH - 40 - wordmarkCornerWidth,
       },
-      { input: logo, top: PHOTO_HEIGHT + 40, left: Math.round(WIDTH / 2 - logoSize / 2) },
+      { input: logo, top: Math.round(logoTop), left: Math.round(WIDTH / 2 - logoSize / 2) },
       { input: Buffer.from(overlaySvg), top: 0, left: 0 },
     ])
     .jpeg({ quality: 92 })
