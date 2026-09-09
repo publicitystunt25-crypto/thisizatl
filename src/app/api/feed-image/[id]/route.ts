@@ -131,16 +131,14 @@ export async function GET(
 
   // Real wordmark asset (same file exported from the site's actual header
   // styling), not re-rendered text -- guarantees the exact font/gradient
-  // instead of an approximation.
-  const wordmarkMainWidth = 460;
-  const wordmarkMain = await sharp(wordmarkBuffer).resize({ width: wordmarkMainWidth }).toBuffer();
-
+  // instead of an approximation. Only used small in the corner; the logo
+  // mark alone carries the brand in the main block below the photo.
   const wordmarkCornerWidth = 220;
   const wordmarkCorner = await sharp(wordmarkBuffer).resize({ width: wordmarkCornerWidth }).toBuffer();
 
   const captionLines = wrapText(caption, 30, 4);
   const captionLineHeight = 54;
-  const captionStartY = PHOTO_HEIGHT + 300;
+  const captionStartY = PHOTO_HEIGHT + 40 + logoSize + 80;
   const captionSvg = captionLines
     .map(
       (line, i) =>
@@ -164,11 +162,6 @@ export async function GET(
         left: WIDTH - 40 - wordmarkCornerWidth,
       },
       { input: logo, top: PHOTO_HEIGHT + 40, left: Math.round(WIDTH / 2 - logoSize / 2) },
-      {
-        input: wordmarkMain,
-        top: PHOTO_HEIGHT + 40 + logoSize + 20,
-        left: Math.round(WIDTH / 2 - wordmarkMainWidth / 2),
-      },
       { input: Buffer.from(overlaySvg), top: 0, left: 0 },
     ])
     .jpeg({ quality: 92 })
