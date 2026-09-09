@@ -16,6 +16,14 @@ export interface SocialPost {
   existingFbPostId?: string | null;
 }
 
+// Real Instagram usernames: 1-30 chars, letters/digits/periods/underscores.
+// Guards against someone pasting an entire paragraph (bio, EPK text) into
+// the Instagram field -- without this, that text would get treated as a
+// "bare handle" and turned into a broken instagram.com/<giant text> URL,
+// which then shows up as a dead "Follow on Instagram" link on the article
+// itself, not just a failed tag attempt.
+const VALID_HANDLE = /^[A-Za-z0-9._]{1,30}$/;
+
 // Accepts whatever an artist typed into the Instagram field -- a bare
 // handle ("lkwkai17", "@lkwkai17") or a full profile URL, with or without
 // "https://" -- and normalizes it to a full URL so it can be stored and
@@ -32,7 +40,8 @@ export function normalizeInstagramInput(raw: string): string | null {
   }
 
   const handle = stripped.replace(/^\/+|\/+$/g, "");
-  return handle ? `https://instagram.com/${handle}` : null;
+  if (!handle || !VALID_HANDLE.test(handle)) return null;
+  return `https://instagram.com/${handle}`;
 }
 
 // Pulls the @handle out of a full Instagram profile URL
