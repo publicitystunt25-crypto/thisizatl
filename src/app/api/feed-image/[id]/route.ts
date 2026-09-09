@@ -136,13 +136,13 @@ export async function GET(
   const wordmarkCornerWidth = 220;
   const wordmarkCorner = await sharp(wordmarkBuffer).resize({ width: wordmarkCornerWidth }).toBuffer();
 
-  const captionLines = wrapText(caption, 30, 4);
-  const captionLineHeight = 54;
-  const captionStartY = PHOTO_HEIGHT + 40 + logoSize + 80;
+  const captionLines = wrapText(caption, 22, 4);
+  const captionLineHeight = 68;
+  const captionStartY = PHOTO_HEIGHT + 40 + logoSize + 90;
   const captionSvg = captionLines
     .map(
       (line, i) =>
-        `<text x="${WIDTH / 2}" y="${captionStartY + i * captionLineHeight}" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="46" fill="${BRAND_ORANGE}">${escapeXml(line)}</text>`
+        `<text x="${WIDTH / 2}" y="${captionStartY + i * captionLineHeight}" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="60" fill="${BRAND_ORANGE}">${escapeXml(line)}</text>`
     )
     .join("");
 
