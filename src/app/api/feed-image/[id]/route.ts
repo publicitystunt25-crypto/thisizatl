@@ -13,10 +13,14 @@ const BRAND_RED = "#e8342a";
 // Crops a source image to exactly targetW x targetH. When a detected face
 // focus point is available, scales to cover the target box and extracts a
 // window centered on that point (clamped so it never runs off the edge) --
-// otherwise falls back to a top-anchored crop, since every photo we've
-// handled this way has had its subject positioned in the upper portion, and
-// "attention"-based auto-cropping has picked the wrong region on action
-// shots (e.g. mid-swing poses) where the most "salient" area isn't the face.
+// otherwise falls back to sharp's attention-based smart crop (entropy +
+// skin-tone saliency), the same fallback the Story image already uses. A
+// fixed top-anchor was tried here before, but it assumes the subject sits in
+// the upper portion of every photo, which cut a subject's face off outright
+// on a photo where that wasn't true (Romme Rombe) -- attention-based cropping
+// isn't perfect either (it can pick the wrong region on action shots where
+// the most "salient" area isn't the face), but it adapts per-photo instead of
+// guessing the same fixed position every time.
 async function cropToFocus(
   imgBuffer: Buffer,
   targetW: number,
@@ -24,7 +28,7 @@ async function cropToFocus(
   focus: { x: number; y: number } | null
 ): Promise<Buffer> {
   if (!focus) {
-    return sharp(imgBuffer).resize(targetW, targetH, { fit: "cover", position: "top" }).toBuffer();
+    return sharp(imgBuffer).resize(targetW, targetH, { fit: "cover", position: "attention" }).toBuffer();
   }
 
   const meta = await sharp(imgBuffer).metadata();

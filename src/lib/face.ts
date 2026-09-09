@@ -17,19 +17,52 @@ export interface FaceFocus {
   y: number; // percentage 0-100, vertical center of the detected face
 }
 
-// Detects a single, confident, front-ish face and returns its center as a
-// percentage-based focus point for CSS object-position cropping. Returns
-// null on zero or multiple detections rather than guessing -- this Haar
-// cascade is reliable on clean, well-lit, front-facing solo photos, but
-// misses faces in dim/occluded/crowd shots and can't tell which face in a
-// group photo is the actual subject. A null result should fall back to
-// whatever default crop the caller already uses.
+// Runs the cascade once at a given strictness (minNeighbors -- lower finds
+// more candidates but risks more false positives) and returns every
+// candidate rect it finds, largest first.
+function runCascade(
+  classifier: InstanceType<typeof cv.CascadeClassifier>,
+  gray: InstanceType<typeof cv.Mat>,
+  width: number,
+  height: number,
+  minNeighbors: number
+): { x: number; y: number; width: number; height: number }[] {
+  const faces = new cv.RectVector();
+  try {
+    const minDim = Math.round(Math.min(width, height) * 0.08);
+    const minSize = new cv.Size(minDim, minDim);
+    const maxSize = new cv.Size(0, 0);
+    classifier.detectMultiScale(gray, faces, 1.05, minNeighbors, 0, minSize, maxSize);
+
+    const rects = [];
+    for (let i = 0; i < faces.size(); i++) {
+      const f = faces.get(i);
+      rects.push({ x: f.x, y: f.y, width: f.width, height: f.height });
+    }
+    return rects.sort((a, b) => b.width * b.height - a.width * a.height);
+  } finally {
+    faces.delete();
+  }
+}
+
+// Detects the photo's main subject face and returns its center as a
+// percentage-based focus point for CSS object-position cropping. Runs the
+// Haar cascade twice -- first at a strict setting (fewer false positives),
+// then, if that finds nothing, again at a looser setting on a
+// contrast-equalized copy of the image, since dim or low-contrast promo
+// photos (stage lighting, phone camera shots) are the most common cause of a
+// missed detection. When multiple candidates come back, a clearly dominant
+// one (notably larger than the runner-up, e.g. a solo subject up front with
+// smaller faces in the background) is trusted; a photo with several
+// similarly-sized faces is genuinely ambiguous and returns null so the
+// caller's fallback crop takes over instead of guessing which person is the
+// subject.
 export function detectFaceFocus(
   rgbData: Buffer,
   width: number,
   height: number
 ): FaceFocus | null {
-  let mat, gray, faces, classifier;
+  let mat, gray, equalized, classifier;
   try {
     ensureCascadeLoaded();
     classifier = new cv.CascadeClassifier();
@@ -47,18 +80,26 @@ export function detectFaceFocus(
     gray = new cv.Mat();
     cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
 
-    faces = new cv.RectVector();
-    const minDim = Math.round(Math.min(width, height) * 0.1);
-    const minSize = new cv.Size(minDim, minDim);
-    const maxSize = new cv.Size(0, 0);
-    classifier.detectMultiScale(gray, faces, 1.05, 5, 0, minSize, maxSize);
+    let rects = runCascade(classifier, gray, width, height, 5);
 
-    if (faces.size() !== 1) return null;
+    if (rects.length === 0) {
+      equalized = new cv.Mat();
+      cv.equalizeHist(gray, equalized);
+      rects = runCascade(classifier, equalized, width, height, 3);
+    }
 
-    const f = faces.get(0);
+    if (rects.length === 0) return null;
+
+    const [best, runnerUp] = rects;
+    if (runnerUp) {
+      const bestArea = best.width * best.height;
+      const runnerUpArea = runnerUp.width * runnerUp.height;
+      if (bestArea < runnerUpArea * 1.5) return null;
+    }
+
     return {
-      x: ((f.x + f.width / 2) / width) * 100,
-      y: ((f.y + f.height / 2) / height) * 100,
+      x: ((best.x + best.width / 2) / width) * 100,
+      y: ((best.y + best.height / 2) / height) * 100,
     };
   } catch (err) {
     console.error("Face detection failed:", err);
@@ -66,7 +107,7 @@ export function detectFaceFocus(
   } finally {
     mat?.delete();
     gray?.delete();
-    faces?.delete();
+    equalized?.delete();
     classifier?.delete();
   }
 }
