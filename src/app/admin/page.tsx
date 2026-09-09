@@ -160,6 +160,18 @@ function PostRow({
             </form>
           </>
         )}
+        {!pending && post.status === "published" && !post.ig_feed_shared && (
+          <form
+            action={async () => {
+              "use server";
+              await acceptAllAction(post.id);
+            }}
+          >
+            <button type="submit" className="font-medium text-brand-dark hover:underline">
+              Post to IG Feed
+            </button>
+          </form>
+        )}
         {!pending && post.status === "published" && !post.social_shared && (
           <form
             action={async () => {
