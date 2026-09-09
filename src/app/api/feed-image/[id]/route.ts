@@ -106,9 +106,15 @@ export async function GET(
     : post.image_url;
 
   // Optional ?caption= override -- lets the caller supply a spotlight-style
-  // line ("ThisIzATL sits down with X to talk...") instead of the raw title.
+  // line instead of the raw title.
   const { searchParams } = new URL(req.url);
   const caption = searchParams.get("caption") || post.title;
+
+  // Optional ?cropY=<0-100> -- manual nudge for the photo crop's vertical
+  // anchor when there's no detected face to go by and the top-anchored
+  // default doesn't frame the shot well.
+  const cropYParam = searchParams.get("cropY");
+  const manualCropY = cropYParam !== null ? Number(cropYParam) : null;
 
   const [imgRes, logoBuffer, wordmarkBuffer] = await Promise.all([
     fetch(imageUrl),
@@ -121,9 +127,11 @@ export async function GET(
   const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
 
   const focus =
-    post.focus_x != null && post.focus_y != null
-      ? { x: post.focus_x, y: post.focus_y }
-      : null;
+    manualCropY != null
+      ? { x: 50, y: manualCropY }
+      : post.focus_x != null && post.focus_y != null
+        ? { x: post.focus_x, y: post.focus_y }
+        : null;
   const photo = await cropToFocus(imgBuffer, WIDTH, PHOTO_HEIGHT, focus);
 
   const logoSize = 130;
