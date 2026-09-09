@@ -3,53 +3,13 @@ import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { getPostById } from "@/lib/db";
+import { cropToFocus } from "@/lib/crop";
 
 const WIDTH = 1080;
 const HEIGHT = 1350;
 const PHOTO_HEIGHT = 880;
 const BRAND_ORANGE = "#ff5a1f";
 const BRAND_RED = "#e8342a";
-
-// Crops a source image to exactly targetW x targetH. When a detected face
-// focus point is available, scales to cover the target box and extracts a
-// window centered on that point (clamped so it never runs off the edge) --
-// otherwise falls back to sharp's attention-based smart crop (entropy +
-// skin-tone saliency), the same fallback the Story image already uses. A
-// fixed top-anchor was tried here before, but it assumes the subject sits in
-// the upper portion of every photo, which cut a subject's face off outright
-// on a photo where that wasn't true (Romme Rombe) -- attention-based cropping
-// isn't perfect either (it can pick the wrong region on action shots where
-// the most "salient" area isn't the face), but it adapts per-photo instead of
-// guessing the same fixed position every time.
-async function cropToFocus(
-  imgBuffer: Buffer,
-  targetW: number,
-  targetH: number,
-  focus: { x: number; y: number } | null
-): Promise<Buffer> {
-  if (!focus) {
-    return sharp(imgBuffer).resize(targetW, targetH, { fit: "cover", position: "attention" }).toBuffer();
-  }
-
-  const meta = await sharp(imgBuffer).metadata();
-  const srcW = meta.width || targetW;
-  const srcH = meta.height || targetH;
-
-  const scale = Math.max(targetW / srcW, targetH / srcH);
-  const scaledW = Math.round(srcW * scale);
-  const scaledH = Math.round(srcH * scale);
-
-  const focusPxX = (focus.x / 100) * scaledW;
-  const focusPxY = (focus.y / 100) * scaledH;
-
-  const left = Math.min(Math.max(0, Math.round(focusPxX - targetW / 2)), scaledW - targetW);
-  const top = Math.min(Math.max(0, Math.round(focusPxY - targetH / 2)), scaledH - targetH);
-
-  return sharp(imgBuffer)
-    .resize(scaledW, scaledH)
-    .extract({ left, top, width: targetW, height: targetH })
-    .toBuffer();
-}
 
 function escapeXml(text: string): string {
   return text

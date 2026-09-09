@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { getPostById } from "@/lib/db";
+import { cropToFocus } from "@/lib/crop";
 
 const WIDTH = 1080;
 const HEIGHT = 1920;
@@ -69,9 +70,16 @@ export async function GET(
   }
   const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
 
-  const background = await sharp(imgBuffer)
-    .resize(WIDTH, HEIGHT, { fit: "cover", position: "attention" })
-    .toBuffer();
+  // Detected face focus (when available) takes priority over the blind
+  // attention-based crop -- attention can fixate on high-contrast background
+  // elements (graffiti text, signage) instead of the actual subject, which is
+  // what happened here before this was wired up (Kendricke Brown's Story
+  // showed a wall and a jacket sleeve, no face at all).
+  const focus =
+    post.focus_x != null && post.focus_y != null
+      ? { x: post.focus_x, y: post.focus_y }
+      : null;
+  const background = await cropToFocus(imgBuffer, WIDTH, HEIGHT, focus);
 
   const headlineLines = wrapText(post.title, 28, 5);
   const lineHeight = 64;
