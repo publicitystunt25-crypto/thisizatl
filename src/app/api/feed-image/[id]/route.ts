@@ -150,27 +150,30 @@ export async function GET(
 
   // Wider lines (more chars each) instead of many short stacked lines --
   // keeps the block shorter vertically so it can actually sit centered in
-  // the available space instead of running out of room near the edge.
-  const captionLines = wrapText(caption, 26, 4);
-  const captionLineHeight = 80;
-  const captionFontSize = 64;
+  // the available space instead of running out of room near the edge. A
+  // longer title that still wraps to 3+ lines at the bigger size steps down
+  // to a smaller font/line-height instead -- otherwise the block runs taller
+  // than the fixed space below the photo, colliding with the divider above
+  // or the canvas edge below (both happened before this existed).
+  let captionLines = wrapText(caption, 26, 4);
+  let captionLineHeight = 80;
+  let captionFontSize = 64;
+  if (captionLines.length >= 3) {
+    captionLines = wrapText(caption, 34, 3);
+    captionLineHeight = 62;
+    captionFontSize = 50;
+  }
 
   // Caption text first, logo mark below it -- both centered together within
   // the space below the divider.
   const captionToLogoGap = 15;
+  const topGap = 30;
   const bottomMargin = 50;
   const captionBlockHeight = captionLines.length * captionLineHeight;
   const groupHeight = captionBlockHeight + captionToLogoGap + logoSize;
   const availableHeight = HEIGHT - bottomMargin - (PHOTO_HEIGHT + 30);
-  // Clamp against the bottom edge, not just centered in the ideal case --
-  // a longer (3-4 line) caption can make groupHeight taller than
-  // availableHeight, and without this clamp the centering math pushes the
-  // logo down far enough to run past the canvas bottom with no margin at
-  // all (it just gets silently clipped by the compositor).
-  const groupTop = Math.min(
-    PHOTO_HEIGHT + 30 + Math.max(30, (availableHeight - groupHeight) / 2),
-    HEIGHT - bottomMargin - groupHeight
-  );
+  const groupTop =
+    PHOTO_HEIGHT + 30 + topGap + Math.max(0, (availableHeight - topGap - groupHeight) / 2);
   const captionStartY = groupTop + captionFontSize * 0.8;
   const logoTop = groupTop + captionBlockHeight + captionToLogoGap;
 
