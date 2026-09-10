@@ -183,11 +183,6 @@ async function createFeedContainer(
   const body: Record<string, unknown> = {
     image_url: imageUrl,
     caption,
-    // Same as the "Hide like and view counts on this post" toggle in the
-    // Instagram app -- applied automatically to every feed post at publish
-    // time, since it can't be changed after the fact (same editing
-    // limitation as captions).
-    like_and_view_counts_disabled: true,
     access_token: token,
   };
   if (collaborators && collaborators.length > 0) {
