@@ -52,6 +52,7 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS focus_x REAL;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS focus_y REAL;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS ig_feed_shared BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS ig_media_id TEXT;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -60,6 +61,11 @@ function ensureInit(): Promise<void> {
         image_mime TEXT NOT NULL,
         credit TEXT,
         position INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS replied_comments (
+        comment_id TEXT PRIMARY KEY,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
     `).then(() => undefined);
@@ -92,6 +98,7 @@ export interface Post {
   focus_x: number | null;
   focus_y: number | null;
   ig_feed_shared: boolean;
+  ig_media_id: string | null;
 }
 
 export interface PostImage {
@@ -229,6 +236,38 @@ export async function setIgFeedShared(id: number, shared: boolean): Promise<void
   await pool.query(`UPDATE posts SET ig_feed_shared = $1 WHERE id = $2`, [shared, id]);
 }
 
+export async function setIgMediaId(id: number, mediaId: string): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE posts SET ig_media_id = $1 WHERE id = $2`, [mediaId, id]);
+}
+
+// Feed posts published in roughly the last month -- comments mostly arrive
+// soon after posting, so there's no need to sweep every post ever published.
+export async function getRecentIgMediaIds(): Promise<{ id: number; ig_media_id: string }[]> {
+  await ensureInit();
+  const res = await pool.query<{ id: number; ig_media_id: string }>(
+    `SELECT id, ig_media_id FROM posts
+     WHERE ig_media_id IS NOT NULL AND created_at >= now() - interval '30 days'`
+  );
+  return res.rows;
+}
+
+export async function hasRepliedToComment(commentId: string): Promise<boolean> {
+  await ensureInit();
+  const res = await pool.query(`SELECT 1 FROM replied_comments WHERE comment_id = $1`, [
+    commentId,
+  ]);
+  return (res.rowCount ?? 0) > 0;
+}
+
+export async function markCommentReplied(commentId: string): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `INSERT INTO replied_comments (comment_id) VALUES ($1) ON CONFLICT (comment_id) DO NOTHING`,
+    [commentId]
+  );
+}
+
 export async function schedulePost(id: number, scheduledFor: string): Promise<void> {
   await ensureInit();
   await pool.query(
@@ -256,7 +295,7 @@ export async function clearSchedule(id: number): Promise<void> {
 export async function getDueScheduledPosts(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
      FROM posts WHERE status = 'scheduled' AND scheduled_for <= now()`
   );
   return res.rows;
@@ -359,14 +398,14 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
   await ensureInit();
   if (category) {
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
        FROM posts WHERE category = $1 AND status = 'published' ORDER BY created_at DESC`,
       [category]
     );
     return res.rows;
   }
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
      FROM posts WHERE status = 'published' ORDER BY created_at DESC`
   );
   return res.rows;
@@ -375,7 +414,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -384,7 +423,7 @@ export async function getAllPostsAdmin(): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
      FROM posts WHERE id = $1`,
     [id]
   );
@@ -395,7 +434,7 @@ export const getPostBySlug = cache(
   async (slug: string): Promise<Post | undefined> => {
     await ensureInit();
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
        FROM posts WHERE slug = $1 AND status = 'published'`,
       [slug]
     );

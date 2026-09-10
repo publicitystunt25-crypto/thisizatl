@@ -302,6 +302,43 @@ export async function postToInstagramFeed(
   return { ok: true, mediaId };
 }
 
+export interface MediaComment {
+  id: string;
+  text: string;
+}
+
+// Top-level comments only -- replies live under a nested `replies` edge and
+// are never returned here, so there's no risk of the sweep seeing its own
+// past replies and looping on them.
+export async function getMediaComments(mediaId: string): Promise<MediaComment[]> {
+  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  if (!token) return [];
+
+  const res = await fetch(`${GRAPH_BASE}/${mediaId}/comments?fields=id,text&access_token=${token}`);
+  if (!res.ok) {
+    console.error(`Fetching comments for media ${mediaId} failed:`, await res.text());
+    return [];
+  }
+  const data = (await res.json()) as { data?: MediaComment[] };
+  return data.data ?? [];
+}
+
+export async function replyToComment(commentId: string, message: string): Promise<void> {
+  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  if (!token) return;
+
+  const res = await fetch(`${GRAPH_BASE}/${commentId}/replies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, access_token: token }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Comment reply failed: ${res.status} ${body}`);
+  }
+}
+
 export interface ShareResult {
   ok: boolean;
   fbPostId: string | null;

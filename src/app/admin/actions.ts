@@ -22,6 +22,7 @@ import {
   unsetFeaturedPost,
   setSocialShared,
   setIgFeedShared,
+  setIgMediaId,
   schedulePost,
   cancelSchedule,
   clearSchedule,
@@ -351,7 +352,7 @@ export async function acceptAllAction(id: number): Promise<void> {
         body: post.body,
         instagramHandle,
       });
-      await postToInstagramFeed({
+      const feedResult = await postToInstagramFeed({
         id: post.id,
         title: post.title,
         slug: post.slug,
@@ -359,6 +360,9 @@ export async function acceptAllAction(id: number): Promise<void> {
         instagramHandle,
         caption,
       });
+      if (feedResult.mediaId) {
+        await setIgMediaId(post.id, feedResult.mediaId);
+      }
       await setIgFeedShared(post.id, true);
     } catch (err) {
       console.error("Instagram feed publish failed:", err);
