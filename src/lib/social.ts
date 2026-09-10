@@ -345,6 +345,32 @@ export async function postToInstagramFeed(
   return { ok: true, mediaId };
 }
 
+export interface AccountMedia {
+  id: string;
+  timestamp: string;
+}
+
+// Every recent post on the connected Instagram account, regardless of
+// whether it was published through this app or posted manually straight from
+// Instagram -- the comment sweep needs this account-wide view since a
+// manually-posted photo has no corresponding row (and no ig_media_id) in the
+// app's own database at all.
+export async function getRecentAccountMedia(): Promise<AccountMedia[]> {
+  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
+  if (!token || !igUserId) return [];
+
+  const res = await fetch(
+    `${GRAPH_BASE}/${igUserId}/media?fields=id,timestamp&limit=50&access_token=${token}`
+  );
+  if (!res.ok) {
+    console.error("Fetching account media failed:", await res.text());
+    return [];
+  }
+  const data = (await res.json()) as { data?: AccountMedia[] };
+  return data.data ?? [];
+}
+
 export interface MediaComment {
   id: string;
   text: string;

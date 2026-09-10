@@ -241,17 +241,6 @@ export async function setIgMediaId(id: number, mediaId: string): Promise<void> {
   await pool.query(`UPDATE posts SET ig_media_id = $1 WHERE id = $2`, [mediaId, id]);
 }
 
-// Feed posts published in roughly the last month -- comments mostly arrive
-// soon after posting, so there's no need to sweep every post ever published.
-export async function getRecentIgMediaIds(): Promise<{ id: number; ig_media_id: string }[]> {
-  await ensureInit();
-  const res = await pool.query<{ id: number; ig_media_id: string }>(
-    `SELECT id, ig_media_id FROM posts
-     WHERE ig_media_id IS NOT NULL AND created_at >= now() - interval '30 days'`
-  );
-  return res.rows;
-}
-
 export async function hasRepliedToComment(commentId: string): Promise<boolean> {
   await ensureInit();
   const res = await pool.query(`SELECT 1 FROM replied_comments WHERE comment_id = $1`, [
