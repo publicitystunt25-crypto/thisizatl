@@ -115,9 +115,9 @@ export async function GET(
   // to a smaller font/line-height instead -- otherwise the block runs taller
   // than the fixed space below the photo, colliding with the divider above
   // or the canvas edge below (both happened before this existed).
-  let captionLines = wrapText(caption, 21, 4);
-  let captionLineHeight = 92;
-  let captionFontSize = 76;
+  let captionLines = wrapText(caption, 19, 4);
+  let captionLineHeight = 98;
+  let captionFontSize = 85;
   if (captionLines.length >= 3) {
     captionLines = wrapText(caption, 34, 3);
     captionLineHeight = 62;
