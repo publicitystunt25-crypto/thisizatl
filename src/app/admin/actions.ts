@@ -308,10 +308,15 @@ export async function acceptAllAction(id: number): Promise<void> {
   if (!post) throw new Error("Post not found");
 
   let instagramHandle: string | null = null;
+  let collaboratorHandles: string[] = [];
   try {
     const sources = JSON.parse(post.sources) as { source: string; url: string }[];
     const igSource = sources.find((s) => s.source === "Instagram");
     instagramHandle = extractInstagramHandle(igSource?.url);
+    collaboratorHandles = sources
+      .filter((s) => s.source === "Collaborator")
+      .map((s) => extractInstagramHandle(s.url))
+      .filter((h): h is string => !!h);
   } catch {
     // sources isn't valid JSON or doesn't include an Instagram entry -- fine,
     // just means no tag/collab gets attached.
@@ -358,6 +363,7 @@ export async function acceptAllAction(id: number): Promise<void> {
         slug: post.slug,
         image_url: post.image_url,
         instagramHandle,
+        collaboratorHandles,
         caption,
       });
       if (feedResult.mediaId) {

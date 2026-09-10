@@ -21,35 +21,73 @@ function Honeypot() {
   );
 }
 
-function FollowAndEmailFields() {
+const MAX_COLLAB_HANDLES = 5;
+
+function InstagramAndCollabFields() {
+  const [collabCount, setCollabCount] = useState(1);
+
   return (
     <>
       <div>
-        <label className={labelClasses}>Follow ThisIzATL on Instagram</label>
-        <p className="mt-1 text-sm text-zinc-600">
-          We tag and share everyone we feature —{" "}
+        <label className={labelClasses}>What is your Instagram username or Link?</label>
+        <input
+          type="text"
+          name="instagramUrl"
+          placeholder="yourhandle or https://instagram.com/yourhandle"
+          className={inputClasses}
+        />
+      </div>
+
+      <div>
+        <label className={labelClasses}>For Collab Post, follow ThisIzATL on Instagram</label>
+        <div className="mt-2 flex flex-wrap items-center gap-6 text-sm text-zinc-700">
           <a
             href="https://www.instagram.com/thisizatl"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-brand-dark hover:underline"
           >
-            follow @ThisizATL
-          </a>{" "}
-          so you don&rsquo;t miss it.
-        </p>
-        <div className="mt-2 flex gap-6 text-sm text-zinc-700">
+            click here to follow
+          </a>
           <label className="flex items-center gap-2">
-            <input type="radio" name="followsInstagram" value="yes" />
+            <input type="radio" name="collabFollowsInstagram" value="yes" />
             I&rsquo;m following
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="radio" name="followsInstagram" value="no" />
-            Not yet
           </label>
         </div>
       </div>
 
+      <div>
+        <label className={labelClasses}>
+          What additional pages should we collaborate with on the post? (optional)
+        </label>
+        <div className="mt-1 space-y-2">
+          {Array.from({ length: collabCount }).map((_, i) => (
+            <input
+              key={i}
+              type="text"
+              name="collabHandle"
+              placeholder="@handle or https://instagram.com/handle"
+              className={inputClasses}
+            />
+          ))}
+        </div>
+        {collabCount < MAX_COLLAB_HANDLES && (
+          <button
+            type="button"
+            onClick={() => setCollabCount((c) => Math.min(c + 1, MAX_COLLAB_HANDLES))}
+            className="mt-2 text-sm font-medium text-brand-dark hover:underline"
+          >
+            + Add another page
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+function FollowAndEmailFields() {
+  return (
+    <>
       <div>
         <label className={labelClasses}>
           Email address to contact you if your article is approved
@@ -147,16 +185,6 @@ function ArtistFields() {
       </div>
 
       <div>
-        <label className={labelClasses}>What is your Instagram username?</label>
-        <input
-          type="text"
-          name="instagramUrl"
-          placeholder="yourhandle or https://instagram.com/yourhandle"
-          className={inputClasses}
-        />
-      </div>
-
-      <div>
         <label className={labelClasses}>Link to Your Music</label>
         <input
           type="url"
@@ -188,6 +216,8 @@ function ArtistFields() {
       </div>
 
       <FollowAndEmailFields />
+
+      <InstagramAndCollabFields />
 
       <SubmitButton />
     </form>
@@ -273,16 +303,6 @@ function OtherFields() {
       </div>
 
       <div>
-        <label className={labelClasses}>What is your Instagram username?</label>
-        <input
-          type="text"
-          name="instagramUrl"
-          placeholder="yourhandle or https://instagram.com/yourhandle"
-          className={inputClasses}
-        />
-      </div>
-
-      <div>
         <label className={labelClasses}>Link to Your Work (optional)</label>
         <input
           type="url"
@@ -314,6 +334,8 @@ function OtherFields() {
       </div>
 
       <FollowAndEmailFields />
+
+      <InstagramAndCollabFields />
 
       <SubmitButton />
     </form>

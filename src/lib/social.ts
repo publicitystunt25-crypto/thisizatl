@@ -10,6 +10,10 @@ export interface SocialPost {
   // Instagram @handle (no @, no URL) to tag/mention in the Story, e.g. for
   // artist-submitted spotlights -- tagged accounts must be public.
   instagramHandle?: string | null;
+  // Additional accounts (beyond instagramHandle) to invite as Feed-post
+  // collaborators -- collected from the submission form's "which pages
+  // should we collaborate with" question, up to 5.
+  collaboratorHandles?: string[];
   // Set when a previous share attempt already posted to Facebook
   // successfully (e.g. a retry after only Instagram failed) -- skips
   // re-posting to Facebook so a retry can't create a duplicate there.
@@ -44,11 +48,34 @@ export function normalizeInstagramInput(raw: string): string | null {
   return `https://instagram.com/${handle}`;
 }
 
+// Path segments that are Instagram URL structure, not usernames -- a reel
+// or post link ("instagram.com/reel/C_N6Sz...") has no username anywhere in
+// the URL at all. Without this, extractInstagramHandle would take "reel" as
+// if it were the artist's handle and silently try to tag/collab with
+// @reel, a real account that isn't them.
+const RESERVED_PATH_SEGMENTS = new Set([
+  "p", "reel", "reels", "stories", "explore", "accounts", "direct", "tv",
+]);
+
+// True if the given URL is on the instagram.com domain, regardless of
+// whether it's a profile, reel, or post link -- used to catch a submitter
+// pasting an Instagram link into the wrong form field (e.g. "Link to Your
+// Work" instead of the Instagram question).
+export function isInstagramUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    return /(^|\.)instagram\.com$/.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 // Pulls the @handle out of a full Instagram profile URL
 // ("https://instagram.com/handle" / "https://www.instagram.com/handle/?x=1"
-// -> "handle"). Returns null if it doesn't look like an Instagram URL.
-// Lowercased because Meta's tagging API is case-sensitive against the
-// username as stored (lowercase), even though instagram.com's own URLs
+// -> "handle"). Returns null if it doesn't look like an Instagram URL, or if
+// it's a reel/post/other non-profile Instagram link with no derivable
+// username. Lowercased because Meta's tagging API is case-sensitive against
+// the username as stored (lowercase), even though instagram.com's own URLs
 // are case-insensitive -- an artist submitting "ROBJOFFICIAL" would
 // otherwise get "invalid username" and silently fail the whole tag.
 export function extractInstagramHandle(url: string | null | undefined): string | null {
@@ -57,7 +84,8 @@ export function extractInstagramHandle(url: string | null | undefined): string |
     const parsed = new URL(url);
     if (!/(^|\.)instagram\.com$/.test(parsed.hostname)) return null;
     const handle = parsed.pathname.split("/").filter(Boolean)[0]?.toLowerCase();
-    return handle || null;
+    if (!handle || RESERVED_PATH_SEGMENTS.has(handle)) return null;
+    return handle;
   } catch {
     return null;
   }
@@ -155,6 +183,11 @@ async function createFeedContainer(
   const body: Record<string, unknown> = {
     image_url: imageUrl,
     caption,
+    // Same as the "Hide like and view counts on this post" toggle in the
+    // Instagram app -- applied automatically to every feed post at publish
+    // time, since it can't be changed after the fact (same editing
+    // limitation as captions).
+    like_and_view_counts_disabled: true,
     access_token: token,
   };
   if (collaborators && collaborators.length > 0) {
@@ -268,13 +301,23 @@ export async function postToInstagramFeed(
   // to get published even after the underlying code was already fixed.
   const imageUrl = `${SITE_URL}/api/feed-image/${post.id}?t=${Date.now()}`;
 
-  const collaborators = post.instagramHandle ? [post.instagramHandle] : undefined;
+  const collaborators = [
+    ...(post.instagramHandle ? [post.instagramHandle] : []),
+    ...(post.collaboratorHandles ?? []),
+  ];
+  const uniqueCollaborators = [...new Set(collaborators)];
 
-  let result = await createFeedContainer(imageUrl, token, igUserId, post.caption, collaborators);
+  let result = await createFeedContainer(
+    imageUrl,
+    token,
+    igUserId,
+    post.caption,
+    uniqueCollaborators.length ? uniqueCollaborators : undefined
+  );
 
-  if ("error" in result && collaborators) {
+  if ("error" in result && uniqueCollaborators.length) {
     console.error(
-      `Instagram feed collab invite failed for @${post.instagramHandle}, retrying without it:`,
+      `Instagram feed collab invite failed for [${uniqueCollaborators.join(", ")}], retrying without it:`,
       result.error
     );
     result = await createFeedContainer(imageUrl, token, igUserId, post.caption);

@@ -7,7 +7,7 @@ import { processImageUpload } from "@/lib/image";
 import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
 import { generateProfileArticle, ProfileSubmission } from "@/lib/profile";
 import { sendSubmissionNotification, sendOtherSubmissionNotification } from "@/lib/email";
-import { normalizeInstagramInput } from "@/lib/social";
+import { normalizeInstagramInput, isInstagramUrl } from "@/lib/social";
 
 function required(formData: FormData, field: string): string {
   const value = String(formData.get(field) || "").trim();
@@ -19,12 +19,38 @@ function optional(formData: FormData, field: string): string | null {
   return String(formData.get(field) || "").trim() || null;
 }
 
+// Up to 5 additional Instagram accounts to invite as Feed-post collaborators
+// -- the submission form's "which pages should we collaborate with"
+// question, all sharing the name "collabHandle" so they collect into one
+// array here.
+function readCollaboratorUrls(formData: FormData): string[] {
+  return formData
+    .getAll("collabHandle")
+    .map((v) => normalizeInstagramInput(String(v)))
+    .filter((v): v is string => !!v)
+    .slice(0, 5);
+}
+
 export async function submitArtistAction(formData: FormData): Promise<void> {
   // Honeypot: real visitors never see or fill this field (hidden via CSS),
   // so anything in it means an automated bot filled out every input blindly.
   if (String(formData.get("company") || "").trim()) {
     redirect("/");
   }
+
+  let instagramUrl = normalizeInstagramInput(String(formData.get("instagramUrl") || ""));
+  let musicUrl = optional(formData, "musicUrl");
+
+  // Someone occasionally pastes their Instagram link into the wrong field --
+  // if the Instagram question was left blank but the music-link field is
+  // actually an instagram.com URL, use that as their Instagram instead of
+  // filing it as a "Music" source where it'd never get tagged/collabed.
+  if (!instagramUrl && isInstagramUrl(musicUrl)) {
+    instagramUrl = musicUrl;
+    musicUrl = null;
+  }
+
+  const collaboratorUrls = readCollaboratorUrls(formData);
 
   const submission: ArtistSubmission = {
     artistName: required(formData, "artistName"),
@@ -36,9 +62,9 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
     whatsNew: required(formData, "whatsNew"),
     takeaway: optional(formData, "takeaway"),
     bio: optional(formData, "bio"),
-    instagramUrl: normalizeInstagramInput(String(formData.get("instagramUrl") || "")),
-    musicUrl: optional(formData, "musicUrl"),
-    followsInstagram: formData.get("followsInstagram") === "yes",
+    instagramUrl,
+    musicUrl,
+    followsInstagram: formData.get("collabFollowsInstagram") === "yes",
     anythingElse: optional(formData, "anythingElse"),
   };
 
@@ -69,6 +95,9 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   }
   if (submission.musicUrl) {
     sources.push({ title: "Listen", url: submission.musicUrl, source: "Music" });
+  }
+  for (const url of collaboratorUrls) {
+    sources.push({ title: "Collaborate", url, source: "Collaborator" });
   }
 
   const slug = slugify(article.title);
@@ -107,6 +136,20 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
     redirect("/");
   }
 
+  let instagramUrl = normalizeInstagramInput(String(formData.get("instagramUrl") || ""));
+  let linkUrl = optional(formData, "linkUrl");
+
+  // Same cross-field detection as the artist form -- a link to their
+  // work/website that's actually an Instagram URL (this exact mixup
+  // happened with a live submission: an Instagram reel link filed under
+  // "Link to Your Work" instead of the Instagram question).
+  if (!instagramUrl && isInstagramUrl(linkUrl)) {
+    instagramUrl = linkUrl;
+    linkUrl = null;
+  }
+
+  const collaboratorUrls = readCollaboratorUrls(formData);
+
   const submission: ProfileSubmission = {
     name: required(formData, "name"),
     pronouns: required(formData, "pronouns"),
@@ -117,9 +160,9 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
     whatsNew: required(formData, "whatsNew"),
     takeaway: optional(formData, "takeaway"),
     bio: optional(formData, "bio"),
-    instagramUrl: normalizeInstagramInput(String(formData.get("instagramUrl") || "")),
-    linkUrl: optional(formData, "linkUrl"),
-    followsInstagram: formData.get("followsInstagram") === "yes",
+    instagramUrl,
+    linkUrl,
+    followsInstagram: formData.get("collabFollowsInstagram") === "yes",
     anythingElse: optional(formData, "anythingElse"),
   };
 
@@ -146,6 +189,9 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
   }
   if (submission.linkUrl) {
     sources.push({ title: "Visit", url: submission.linkUrl, source: "Website" });
+  }
+  for (const url of collaboratorUrls) {
+    sources.push({ title: "Collaborate", url, source: "Collaborator" });
   }
 
   const slug = slugify(article.title);
