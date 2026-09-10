@@ -116,14 +116,14 @@ export async function GET(
   // box below the photo genuinely can't fit 3 full-size lines of text plus a
   // full-size logo with safe margins on both ends.
   let captionLines = wrapText(caption, 19, 4);
-  let captionLineHeight = 98;
+  let captionLineHeight = 94;
   let captionFontSize = 85;
-  let logoSize = 190;
+  let logoSize = 200;
   if (captionLines.length >= 3) {
     captionLines = wrapText(caption, 30, 3);
-    captionLineHeight = 70;
+    captionLineHeight = 68;
     captionFontSize = 56;
-    logoSize = 160;
+    logoSize = 170;
   }
 
   const logo = await sharp(logoBuffer).resize(logoSize, logoSize).toBuffer();
