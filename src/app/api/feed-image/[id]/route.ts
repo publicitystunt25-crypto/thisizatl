@@ -98,7 +98,27 @@ export async function GET(
         : null;
   const photo = await cropToFocus(imgBuffer, WIDTH, PHOTO_HEIGHT, focus);
 
-  const logoSize = 190;
+  // Wider lines (more chars each) instead of many short stacked lines --
+  // keeps the block shorter vertically so it can actually sit centered in
+  // the available space instead of running out of room near the edge. A
+  // longer title that still wraps to 3+ lines at the bigger size steps down
+  // to a smaller font/line-height instead -- otherwise the block runs taller
+  // than the fixed space below the photo, colliding with the divider above
+  // or the canvas edge below (both happened before this existed). The logo
+  // also shrinks a bit in the 3-line case for the same reason -- the fixed
+  // box below the photo genuinely can't fit 3 full-size lines of text plus a
+  // full-size logo with safe margins on both ends.
+  let captionLines = wrapText(caption, 19, 4);
+  let captionLineHeight = 98;
+  let captionFontSize = 85;
+  let logoSize = 190;
+  if (captionLines.length >= 3) {
+    captionLines = wrapText(caption, 30, 3);
+    captionLineHeight = 70;
+    captionFontSize = 56;
+    logoSize = 160;
+  }
+
   const logo = await sharp(logoBuffer).resize(logoSize, logoSize).toBuffer();
 
   // Real wordmark asset (same file exported from the site's actual header
@@ -107,22 +127,6 @@ export async function GET(
   // mark alone carries the brand in the main block below the photo.
   const wordmarkCornerWidth = 220;
   const wordmarkCorner = await sharp(wordmarkBuffer).resize({ width: wordmarkCornerWidth }).toBuffer();
-
-  // Wider lines (more chars each) instead of many short stacked lines --
-  // keeps the block shorter vertically so it can actually sit centered in
-  // the available space instead of running out of room near the edge. A
-  // longer title that still wraps to 3+ lines at the bigger size steps down
-  // to a smaller font/line-height instead -- otherwise the block runs taller
-  // than the fixed space below the photo, colliding with the divider above
-  // or the canvas edge below (both happened before this existed).
-  let captionLines = wrapText(caption, 19, 4);
-  let captionLineHeight = 98;
-  let captionFontSize = 85;
-  if (captionLines.length >= 3) {
-    captionLines = wrapText(caption, 34, 3);
-    captionLineHeight = 62;
-    captionFontSize = 50;
-  }
 
   // Caption text first, logo mark below it -- both centered together within
   // the space below the divider.
