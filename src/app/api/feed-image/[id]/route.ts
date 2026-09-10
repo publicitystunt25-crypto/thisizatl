@@ -80,6 +80,13 @@ export async function GET(
   const cropYParam = searchParams.get("cropY");
   const manualCropY = cropYParam !== null ? Number(cropYParam) : null;
 
+  // Optional ?zoom=<multiplier> -- manual zoom-in on top of the normal
+  // cover-fit crop, for photos with a lot of empty background padding
+  // around the subject (e.g. a cutout-style PNG) that a plain crop can't
+  // tighten in on by itself.
+  const zoomParam = searchParams.get("zoom");
+  const zoom = zoomParam !== null ? Number(zoomParam) : 1;
+
   const [imgRes, logoBuffer, wordmarkBuffer] = await Promise.all([
     fetch(imageUrl),
     fs.readFile(path.join(process.cwd(), "public/logo.png")),
@@ -96,7 +103,7 @@ export async function GET(
       : post.focus_x != null && post.focus_y != null
         ? { x: post.focus_x, y: post.focus_y }
         : null;
-  const photo = await cropToFocus(imgBuffer, WIDTH, PHOTO_HEIGHT, focus);
+  const photo = await cropToFocus(imgBuffer, WIDTH, PHOTO_HEIGHT, focus, zoom);
 
   // Wider lines (more chars each) instead of many short stacked lines --
   // keeps the block shorter vertically so it can actually sit centered in

@@ -13,7 +13,13 @@ export async function cropToFocus(
   imgBuffer: Buffer,
   targetW: number,
   targetH: number,
-  focus: { x: number; y: number } | null
+  focus: { x: number; y: number } | null,
+  // Extra zoom beyond the natural "cover" scale, centered on the focus
+  // point -- for photos with a lot of empty background padding around the
+  // actual subject (e.g. a PNG cutout on a black backdrop), where a plain
+  // cover-fit crop still leaves most of that empty space in frame since it
+  // has no way to know where the subject's real edges are.
+  zoom = 1
 ): Promise<Buffer> {
   if (!focus) {
     return sharp(imgBuffer).resize(targetW, targetH, { fit: "cover", position: "attention" }).toBuffer();
@@ -23,7 +29,7 @@ export async function cropToFocus(
   const srcW = meta.width || targetW;
   const srcH = meta.height || targetH;
 
-  const scale = Math.max(targetW / srcW, targetH / srcH);
+  const scale = Math.max(targetW / srcW, targetH / srcH) * zoom;
   const scaledW = Math.round(srcW * scale);
   const scaledH = Math.round(srcH * scale);
 
