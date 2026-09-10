@@ -150,6 +150,10 @@ export default async function PostPage({
         )}
 
         <ArticleLinks sources={sources} artistName={post.image_credit} />
+
+        <p className="mt-8 border-t border-zinc-200 pt-4 text-xs text-zinc-400">
+          © {new Date().getFullYear()} ThisIzATL
+        </p>
       </main>
 
       <SiteFooter />
