@@ -8,7 +8,7 @@ const WIDTH = 1080;
 const HEIGHT = 1920;
 
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
   const { id } = await ctx.params;
@@ -21,6 +21,12 @@ export async function GET(
   const imageUrl = post.image_url.startsWith("/")
     ? `${siteUrl}${post.image_url}`
     : post.image_url;
+
+  // Optional ?caption= override -- same as the feed-image route, for a
+  // headline that shouldn't show something in the raw title (e.g. an
+  // artist not wanting a specific detail highlighted on the graphic).
+  const { searchParams } = new URL(req.url);
+  const headline = searchParams.get("caption") || post.title;
 
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) {
@@ -39,7 +45,7 @@ export async function GET(
       : null;
   const background = await cropToFocus(imgBuffer, WIDTH, HEIGHT, focus);
 
-  const headlineLines = wrapText(post.title, 28, 5);
+  const headlineLines = wrapText(headline, 28, 5);
   const lineHeight = 64;
   const gradientHeight = 200 + headlineLines.length * lineHeight;
   const textBlockTop = HEIGHT - gradientHeight + 60;
