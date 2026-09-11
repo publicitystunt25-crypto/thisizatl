@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { detectFaceFocus, type FaceFocus } from "./face";
+import { detectFocusWithVision, type VisionFocus } from "./visionFocus";
 
 // Phone/camera uploads can come in at 4000px+ wide and several MB -- the site
 // never displays them larger than ~1600px, so storing (and re-serving) the
@@ -8,23 +8,14 @@ import { detectFaceFocus, type FaceFocus } from "./face";
 export async function processImageUpload(
   buffer: Buffer,
   maxWidth: number
-): Promise<{ buffer: Buffer; mime: string; width: number; height: number; focus: FaceFocus | null }> {
+): Promise<{ buffer: Buffer; mime: string; width: number; height: number; focus: VisionFocus | null }> {
   const resized = sharp(buffer)
     .rotate()
     .resize({ width: maxWidth, withoutEnlargement: true })
     .jpeg({ quality: 82, mozjpeg: true });
   const out = await resized.toBuffer({ resolveWithObject: true });
 
-  let focus: FaceFocus | null = null;
-  try {
-    const { data, info } = await sharp(out.data)
-      .removeAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    focus = detectFaceFocus(data, info.width, info.height);
-  } catch (err) {
-    console.error("Face detection preprocessing failed:", err);
-  }
+  const focus = await detectFocusWithVision(out.data);
 
   return {
     buffer: out.data,

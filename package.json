@@ -15,7 +15,6 @@
     "@anthropic-ai/sdk": "^0.123.0",
     "cheerio": "^1.2.0",
     "next": "16.3.4",
-    "opencv-wasm": "^4.3.0-10",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
