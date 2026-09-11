@@ -4,6 +4,7 @@ import { getPostById, getPostImages } from "@/lib/db";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import DraftArticleBody from "@/components/DraftArticleBody";
+import InstagramPostPreview from "@/components/InstagramPostPreview";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,15 @@ export default async function SharedDraftPreviewPage({
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
         <DraftArticleBody post={post} galleryImages={galleryImages} />
+
+        {post.image_url && (
+          <InstagramPostPreview
+            postId={post.id}
+            title={post.title}
+            body={post.body}
+            sourcesJson={post.sources}
+          />
+        )}
       </main>
 
       <SiteFooter />
