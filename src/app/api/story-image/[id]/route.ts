@@ -2,52 +2,10 @@ import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { getPostById } from "@/lib/db";
 import { cropToFocus } from "@/lib/crop";
+import { escapeXml, wrapText } from "@/lib/textOverlay";
 
 const WIDTH = 1080;
 const HEIGHT = 1920;
-
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-// Rough word-wrap by character count -- good enough for a bold display
-// headline at a known font size, no need for exact text metrics.
-function wrapText(text: string, maxCharsPerLine: number, maxLines: number): string[] {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-  let wordIndex = 0;
-
-  while (wordIndex < words.length && lines.length < maxLines) {
-    const word = words[wordIndex];
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxCharsPerLine && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
-    wordIndex++;
-  }
-
-  const usedAllWords = wordIndex >= words.length;
-  if (current) lines.push(current);
-
-  if (!usedAllWords && lines.length > 0) {
-    let last = lines[lines.length - 1];
-    if (last.length > maxCharsPerLine - 3) {
-      last = last.slice(0, maxCharsPerLine - 3).trimEnd();
-    }
-    lines[lines.length - 1] = `${last}…`;
-  }
-
-  return lines.slice(0, maxLines);
-}
 
 export async function GET(
   _req: Request,
