@@ -15,7 +15,7 @@ export async function processImageUpload(
     .jpeg({ quality: 82, mozjpeg: true });
   const out = await resized.toBuffer({ resolveWithObject: true });
 
-  const focus = await detectFocusWithVision(out.data);
+  const focus = await detectFocusWithVision(out.data, out.info.width, out.info.height);
 
   return {
     buffer: out.data,
