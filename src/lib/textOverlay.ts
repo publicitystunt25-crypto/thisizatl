@@ -15,7 +15,7 @@ export function escapeXml(text: string): string {
 // which left the ellipsis attached to that invisible line instead of the
 // real last line on screen -- the visible text just stopped mid-sentence
 // with no "…" at all.
-export function wrapText(text: string, maxCharsPerLine: number, maxLines: number): string[] {
+function wrapAll(text: string, maxCharsPerLine: number): string[] {
   const words = text.split(/\s+/);
   const allLines: string[] = [];
   let current = "";
@@ -31,6 +31,11 @@ export function wrapText(text: string, maxCharsPerLine: number, maxLines: number
   }
   if (current) allLines.push(current);
 
+  return allLines;
+}
+
+export function wrapText(text: string, maxCharsPerLine: number, maxLines: number): string[] {
+  const allLines = wrapAll(text, maxCharsPerLine);
   const truncated = allLines.length > maxLines;
   const lines = allLines.slice(0, maxLines);
 
@@ -43,4 +48,12 @@ export function wrapText(text: string, maxCharsPerLine: number, maxLines: number
   }
 
   return lines;
+}
+
+// True if the text wraps into maxLines or fewer at this width -- lets a
+// caller try progressively smaller font/line-width tiers and pick the
+// largest one where the full headline actually fits, instead of always
+// truncating at a single fixed size.
+export function fitsWithinLines(text: string, maxCharsPerLine: number, maxLines: number): boolean {
+  return wrapAll(text, maxCharsPerLine).length <= maxLines;
 }

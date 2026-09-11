@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { getPostById } from "@/lib/db";
 import { cropToFocus } from "@/lib/crop";
-import { escapeXml, wrapText } from "@/lib/textOverlay";
+import { escapeXml, wrapText, fitsWithinLines } from "@/lib/textOverlay";
 
 const WIDTH = 1080;
 const HEIGHT = 1350;
@@ -65,24 +65,27 @@ export async function GET(
 
   // Wider lines (more chars each) instead of many short stacked lines --
   // keeps the block shorter vertically so it can actually sit centered in
-  // the available space instead of running out of room near the edge. A
-  // longer title that still wraps to 3+ lines at the bigger size steps down
-  // to a smaller font/line-height instead -- otherwise the block runs taller
-  // than the fixed space below the photo, colliding with the divider above
-  // or the canvas edge below (both happened before this existed). The logo
-  // also shrinks a bit in the 3-line case for the same reason -- the fixed
-  // box below the photo genuinely can't fit 3 full-size lines of text plus a
-  // full-size logo with safe margins on both ends.
-  let captionLines = wrapText(caption, 19, 4);
-  let captionLineHeight = 94;
-  let captionFontSize = 85;
-  let logoSize = 200;
-  if (captionLines.length >= 3) {
-    captionLines = wrapText(caption, 30, 3);
-    captionLineHeight = 68;
-    captionFontSize = 56;
-    logoSize = 170;
-  }
+  // the available space instead of running out of room near the edge.
+  // Headlines never get truncated with "..." -- instead this tries
+  // progressively smaller font/logo tiers until the full text actually fits
+  // within that tier's line limit, and uses the largest one that works. Each
+  // tier's numbers were picked to leave a safe margin above the canvas
+  // bottom at that line count (checked by hand against this layout's fixed
+  // photo/box heights), so a longer headline shrinking further never
+  // collides with the divider above or the edge below.
+  const CAPTION_TIERS = [
+    { fontSize: 85, lineHeight: 94, maxCharsPerLine: 19, maxLines: 2, logoSize: 200 },
+    { fontSize: 56, lineHeight: 68, maxCharsPerLine: 30, maxLines: 3, logoSize: 170 },
+    { fontSize: 42, lineHeight: 52, maxCharsPerLine: 40, maxLines: 4, logoSize: 140 },
+    { fontSize: 34, lineHeight: 42, maxCharsPerLine: 52, maxLines: 5, logoSize: 120 },
+  ];
+  const tier =
+    CAPTION_TIERS.find((t) => fitsWithinLines(caption, t.maxCharsPerLine, t.maxLines)) ??
+    CAPTION_TIERS[CAPTION_TIERS.length - 1];
+  const captionLines = wrapText(caption, tier.maxCharsPerLine, tier.maxLines);
+  const captionLineHeight = tier.lineHeight;
+  const captionFontSize = tier.fontSize;
+  const logoSize = tier.logoSize;
 
   const logo = await sharp(logoBuffer).resize(logoSize, logoSize).toBuffer();
 
