@@ -2,13 +2,83 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getPostById, getPostImages } from "@/lib/db";
-import { formatDateTime } from "@/lib/date";
-import CategoryBadge from "@/components/CategoryBadge";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
-import ArticleLinks, { type SourceCredit } from "@/components/ArticleLinks";
+import DraftArticleBody from "@/components/DraftArticleBody";
+import { getInstagramHandlesFromSources } from "@/lib/social";
+import { generateFeedCaption } from "@/lib/generate";
 
 export const dynamic = "force-dynamic";
+
+// Mirrors the actual feed post: Claude generates the caption from the same
+// title/body/handle Accept All would use, so this is a true preview rather
+// than a guess -- not a static mock. Only attempted when there's a usable
+// Instagram handle, same requirement the real posting flow has.
+async function InstagramPostPreview({
+  postId,
+  title,
+  body,
+  sourcesJson,
+}: {
+  postId: number;
+  title: string;
+  body: string;
+  sourcesJson: string;
+}) {
+  const { instagramHandle, collaboratorHandles } = getInstagramHandlesFromSources(sourcesJson);
+
+  if (!instagramHandle) {
+    return (
+      <div className="mt-10 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-500">
+        No Instagram handle on this submission -- there&rsquo;s nobody to tag, so Accept All
+        will only publish to Facebook and the Instagram Story, not the feed.
+      </div>
+    );
+  }
+
+  let caption: string | null = null;
+  let error: string | null = null;
+  try {
+    caption = await generateFeedCaption({ title, body, instagramHandle });
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err);
+  }
+
+  return (
+    <div className="mt-10">
+      <h2 className="font-display mb-3 text-lg font-bold text-ink">Instagram Feed Preview</h2>
+      <div className="mx-auto max-w-sm overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          <Image src="/logo.png" alt="" width={28} height={28} className="rounded-full" />
+          <span className="text-sm font-semibold text-ink">thisizatl</span>
+        </div>
+        <div className="relative aspect-[4/5] w-full bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element -- external composited JPEG, not an optimizable local asset. No cache-busting param needed: the endpoint itself is Cache-Control: no-store. */}
+          <img
+            src={`/api/feed-image/${postId}`}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        </div>
+        <div className="space-y-2 px-3 py-3 text-sm text-zinc-800">
+          {collaboratorHandles.length > 0 && (
+            <p className="text-xs text-zinc-500">
+              Collaborators: @{instagramHandle}
+              {collaboratorHandles.map((h) => `, @${h}`).join("")}
+            </p>
+          )}
+          {error ? (
+            <p className="text-red-600">Caption generation failed: {error}</p>
+          ) : (
+            <p className="whitespace-pre-line">
+              <span className="font-semibold">thisizatl</span> {caption}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Same visual template as the real post page, but fetches by id regardless
 // of status -- lets admins actually read a draft/pending submission before
@@ -22,7 +92,6 @@ export default async function AdminPostPreviewPage({
   const post = await getPostById(Number(id));
   if (!post) notFound();
 
-  const sources = JSON.parse(post.sources) as SourceCredit[];
   const galleryImages = await getPostImages(post.id);
 
   return (
@@ -37,91 +106,16 @@ export default async function AdminPostPreviewPage({
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-        <CategoryBadge category={post.category} />
-        <h1 className="font-display mt-3 text-3xl font-bold leading-tight text-ink sm:text-4xl">
-          {post.title}
-        </h1>
-        <p className="mt-3 text-sm text-zinc-500">
-          {post.author && <>By {post.author} · </>}
-          {formatDateTime(post.created_at)}
-        </p>
+        <DraftArticleBody post={post} galleryImages={galleryImages} />
 
         {post.image_url && (
-          <div className="mt-8">
-            <div
-              className={`relative mx-auto max-w-full overflow-hidden rounded-xl bg-zinc-100 ${
-                post.image_width && post.image_height ? "" : "aspect-[16/9] w-full"
-              }`}
-              style={
-                post.image_width && post.image_height
-                  ? {
-                      aspectRatio: `${post.image_width} / ${post.image_height}`,
-                      maxHeight: "75vh",
-                      width: `min(100%, calc(75vh * ${post.image_width} / ${post.image_height}))`,
-                    }
-                  : undefined
-              }
-            >
-              <Image
-                src={post.image_url}
-                alt=""
-                fill
-                sizes="(min-width: 768px) 768px, 100vw"
-                priority
-                className="object-contain"
-              />
-            </div>
-            {post.image_credit_name ? (
-              <p className="mt-2 text-xs text-zinc-400">
-                Photo by{" "}
-                {post.image_credit_url ? (
-                  <a
-                    href={post.image_credit_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    {post.image_credit_name}
-                  </a>
-                ) : (
-                  post.image_credit_name
-                )}{" "}
-                via Pexels
-              </p>
-            ) : (
-              post.image_credit && (
-                <p className="mt-2 text-xs text-zinc-400">Photo by {post.image_credit}</p>
-              )
-            )}
-          </div>
+          <InstagramPostPreview
+            postId={post.id}
+            title={post.title}
+            body={post.body}
+            sourcesJson={post.sources}
+          />
         )}
-
-        <div className="mt-8 whitespace-pre-line text-[17px] leading-relaxed text-zinc-800">
-          {post.body}
-        </div>
-
-        {galleryImages.length > 0 && (
-          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {galleryImages.map((img) => (
-              <div key={img.id}>
-                <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-zinc-100">
-                  <Image
-                    src={`/api/gallery/${img.id}`}
-                    alt=""
-                    fill
-                    sizes="(min-width: 640px) 33vw, 50vw"
-                    className="object-cover"
-                  />
-                </div>
-                {img.credit && (
-                  <p className="mt-1 text-xs text-zinc-400">Photo by {img.credit}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <ArticleLinks sources={sources} artistName={post.image_credit} />
       </main>
 
       <SiteFooter />

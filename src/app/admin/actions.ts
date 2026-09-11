@@ -29,7 +29,13 @@ import {
 } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
-import { shareNewPost, postToInstagramFeed, extractInstagramHandle, deleteFacebookPost } from "@/lib/social";
+import {
+  shareNewPost,
+  postToInstagramFeed,
+  extractInstagramHandle,
+  getInstagramHandlesFromSources,
+  deleteFacebookPost,
+} from "@/lib/social";
 import { generateFeedCaption } from "@/lib/generate";
 import { sendArticleLiveNotification } from "@/lib/email";
 import { fromEasternDatetimeLocalValue } from "@/lib/date";
@@ -307,20 +313,7 @@ export async function acceptAllAction(id: number): Promise<void> {
   const post = await getPostById(id);
   if (!post) throw new Error("Post not found");
 
-  let instagramHandle: string | null = null;
-  let collaboratorHandles: string[] = [];
-  try {
-    const sources = JSON.parse(post.sources) as { source: string; url: string }[];
-    const igSource = sources.find((s) => s.source === "Instagram");
-    instagramHandle = extractInstagramHandle(igSource?.url);
-    collaboratorHandles = sources
-      .filter((s) => s.source === "Collaborator")
-      .map((s) => extractInstagramHandle(s.url))
-      .filter((h): h is string => !!h);
-  } catch {
-    // sources isn't valid JSON or doesn't include an Instagram entry -- fine,
-    // just means no tag/collab gets attached.
-  }
+  const { instagramHandle, collaboratorHandles } = getInstagramHandlesFromSources(post.sources);
 
   if (post.status !== "published") {
     await updatePost(id, {

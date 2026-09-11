@@ -80,13 +80,23 @@ function PostRow({
             View
           </Link>
         ) : (
-          <Link
-            href={`/admin/${post.id}/preview`}
-            target="_blank"
-            className="text-zinc-500 hover:text-brand-dark"
-          >
-            Preview
-          </Link>
+          <>
+            <Link
+              href={`/admin/${post.id}/preview`}
+              target="_blank"
+              className="text-zinc-500 hover:text-brand-dark"
+            >
+              Preview
+            </Link>
+            <Link
+              href={`/preview/${post.id}`}
+              target="_blank"
+              className="text-zinc-500 hover:text-brand-dark"
+              title="Shareable read-only link -- no admin login required"
+            >
+              Share
+            </Link>
+          </>
         )}
         <Link
           href={`/admin/${post.id}/edit`}

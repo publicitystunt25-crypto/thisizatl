@@ -91,6 +91,29 @@ export function extractInstagramHandle(url: string | null | undefined): string |
   }
 }
 
+// Pulls the submitter's own Instagram handle and any additional collaborator
+// handles out of a post's raw `sources` JSON column -- the same parsing
+// logic needed anywhere a post is about to be shared to Instagram (Accept
+// All, admin preview, retries), so it lives in one place instead of being
+// re-copied at each call site.
+export function getInstagramHandlesFromSources(sourcesJson: string): {
+  instagramHandle: string | null;
+  collaboratorHandles: string[];
+} {
+  try {
+    const sources = JSON.parse(sourcesJson) as { source: string; url: string }[];
+    const igSource = sources.find((s) => s.source === "Instagram");
+    const instagramHandle = extractInstagramHandle(igSource?.url);
+    const collaboratorHandles = sources
+      .filter((s) => s.source === "Collaborator")
+      .map((s) => extractInstagramHandle(s.url))
+      .filter((h): h is string => !!h);
+    return { instagramHandle, collaboratorHandles };
+  } catch {
+    return { instagramHandle: null, collaboratorHandles: [] };
+  }
+}
+
 async function postToFacebookPage(post: SocialPost): Promise<string | null> {
   const pageId = process.env.FB_PAGE_ID;
   const token = process.env.FB_PAGE_ACCESS_TOKEN;
