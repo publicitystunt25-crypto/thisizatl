@@ -26,8 +26,19 @@ export async function generateMetadata({
   if (!post) return {};
 
   const description = excerpt(post.body);
+  // Use the photo's real dimensions when known -- a mismatched width/height
+  // hint (this used to hardcode 1200x675 for every post) makes Facebook's
+  // own link-preview auto-crop guess the wrong region on any photo that
+  // isn't actually that aspect ratio.
   const images = post.image_url
-    ? [{ url: post.image_url, width: 1200, height: 675, alt: post.title }]
+    ? [
+        {
+          url: post.image_url,
+          width: post.image_width ?? 1200,
+          height: post.image_height ?? 675,
+          alt: post.title,
+        },
+      ]
     : undefined;
 
   return {
