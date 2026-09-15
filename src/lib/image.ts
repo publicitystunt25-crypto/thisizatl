@@ -1,23 +1,5 @@
 import sharp from "sharp";
-import heicConvert from "heic-convert";
 import { detectFocusWithVision, type VisionFocus } from "./visionFocus";
-
-// iPhones default their camera to HEIC, and mobile submitters overwhelmingly
-// upload straight from their camera roll -- but the prebuilt sharp/libvips
-// binary this runs on can't decode real HEIC (Nokia's HEVC codec license
-// blocks it from shipping in prebuilt binaries; sharp can only *write*
-// HEIF/AVIF, not read HEIC). Every mobile submission with an unconverted
-// iPhone photo was hitting an uncaught "Unsupported feature" error out of
-// sharp() below. Detect it from the file's own magic bytes (rather than
-// trusting the browser-reported mime type) and pre-convert to JPEG with the
-// pure-JS heic-convert package, which doesn't depend on the system's libvips
-// build at all.
-const HEIC_BRANDS = new Set(["heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs", "mif1", "msf1"]);
-
-function isHeic(buffer: Buffer): boolean {
-  if (buffer.length < 12) return false;
-  return buffer.toString("ascii", 4, 8) === "ftyp" && HEIC_BRANDS.has(buffer.toString("ascii", 8, 12));
-}
 
 // Phone/camera uploads can come in at 4000px+ wide and several MB -- the site
 // never displays them larger than ~1600px, so storing (and re-serving) the
@@ -27,11 +9,7 @@ export async function processImageUpload(
   buffer: Buffer,
   maxWidth: number
 ): Promise<{ buffer: Buffer; mime: string; width: number; height: number; focus: VisionFocus | null }> {
-  const sourceBuffer = isHeic(buffer)
-    ? Buffer.from(await heicConvert({ buffer, format: "JPEG", quality: 0.92 }))
-    : buffer;
-
-  const resized = sharp(sourceBuffer)
+  const resized = sharp(buffer)
     .rotate()
     .resize({ width: maxWidth, withoutEnlargement: true })
     .jpeg({ quality: 82, mozjpeg: true });
