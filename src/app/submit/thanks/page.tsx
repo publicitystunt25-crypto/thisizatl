@@ -25,7 +25,8 @@ export default function SubmitThanksPage() {
           <a href="mailto:info@thisizatl.com" className="font-medium text-brand-dark hover:underline">
             info@thisizatl.com
           </a>{" "}
-          if you haven&rsquo;t already.
+          if you haven&rsquo;t already &mdash; add your name to the subject line so we can match it to
+          your submission.
         </p>
         <Link
           href="/"
