@@ -121,7 +121,7 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName, { width, height }, focus);
 
   try {
-    await sendSubmissionNotification(submission, id);
+    await sendSubmissionNotification(submission, id, collaboratorUrls);
   } catch (err) {
     console.error("Submission notification email failed:", err);
   }
@@ -215,7 +215,7 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
   await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.name, { width, height }, focus);
 
   try {
-    await sendOtherSubmissionNotification(submission, id);
+    await sendOtherSubmissionNotification(submission, id, collaboratorUrls);
   } catch (err) {
     console.error("Submission notification email failed:", err);
   }

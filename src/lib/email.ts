@@ -6,7 +6,8 @@ const FROM_ADDRESS = "ThisIzATL <info@thisizatl.com>";
 
 export async function sendSubmissionNotification(
   submission: ArtistSubmission,
-  postId: number
+  postId: number,
+  collaboratorUrls: string[] = []
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.SUBMISSION_NOTIFY_EMAIL;
@@ -22,6 +23,7 @@ Genre: ${submission.genre}
 Instagram: ${submission.instagramUrl || "(not provided)"}
 Music: ${submission.musicUrl || "(not provided)"}
 Following ThisIzATL: ${submission.followsInstagram ? "Yes" : "No"}
+Collaboration pages: ${collaboratorUrls.length ? collaboratorUrls.join(", ") : "(none)"}
 
 Review it here: ${reviewUrl}`;
 
@@ -47,7 +49,8 @@ Review it here: ${reviewUrl}`;
 
 export async function sendOtherSubmissionNotification(
   submission: ProfileSubmission,
-  postId: number
+  postId: number,
+  collaboratorUrls: string[] = []
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.SUBMISSION_NOTIFY_EMAIL;
@@ -63,6 +66,7 @@ Profession: ${submission.profession}
 Instagram: ${submission.instagramUrl || "(not provided)"}
 Link: ${submission.linkUrl || "(not provided)"}
 Following ThisIzATL: ${submission.followsInstagram ? "Yes" : "No"}
+Collaboration pages: ${collaboratorUrls.length ? collaboratorUrls.join(", ") : "(none)"}
 
 Review it here: ${reviewUrl}`;
 
