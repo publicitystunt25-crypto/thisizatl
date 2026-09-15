@@ -229,6 +229,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Meta rejects a collaborators request as a whole when any single username
+// in the list can't be tagged (private account, not a Business/Creator
+// profile, etc.) -- the error still names exactly which one, e.g. "The user
+// pkillapkg cannot be tagged on this media." Pulling that name out lets the
+// caller retry with just the bad one removed instead of dropping every
+// collaborator over one untaggable account.
+function extractUntaggableUsername(errorText: string): string | null {
+  try {
+    const parsed = JSON.parse(errorText) as {
+      error?: { error_subcode?: number; error_user_msg?: string };
+    };
+    if (parsed.error?.error_subcode !== 2207066) return null;
+    const match = parsed.error.error_user_msg?.match(/The user (\S+) cannot be tagged/);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Polls a media container's processing status. Instagram fetches and
 // transcodes the image asynchronously after creation -- publishing before
 // status_code reaches FINISHED fails with a transient "not ready" error.
@@ -325,20 +344,42 @@ export async function postToInstagramFeed(
   ];
   const uniqueCollaborators = [...new Set(collaborators)];
 
+  // A single untaggable collaborator otherwise sinks the whole invite list --
+  // drop just the named account and retry with the rest, repeating until it
+  // succeeds or nobody's left. Only known "can't be tagged" errors are
+  // handled this way; anything else falls back to dropping every
+  // collaborator, same as before.
+  let remainingCollaborators = uniqueCollaborators;
   let result = await createFeedContainer(
     imageUrl,
     token,
     igUserId,
     post.caption,
-    uniqueCollaborators.length ? uniqueCollaborators : undefined
+    remainingCollaborators.length ? remainingCollaborators : undefined
   );
 
-  if ("error" in result && uniqueCollaborators.length) {
+  while ("error" in result && remainingCollaborators.length) {
+    const badUsername = extractUntaggableUsername(result.error);
+    if (!badUsername || !remainingCollaborators.includes(badUsername)) {
+      console.error(
+        `Instagram feed collab invite failed for [${remainingCollaborators.join(", ")}], retrying without any:`,
+        result.error
+      );
+      result = await createFeedContainer(imageUrl, token, igUserId, post.caption);
+      break;
+    }
     console.error(
-      `Instagram feed collab invite failed for [${uniqueCollaborators.join(", ")}], retrying without it:`,
+      `Instagram feed collab invite failed for @${badUsername}, retrying with the rest:`,
       result.error
     );
-    result = await createFeedContainer(imageUrl, token, igUserId, post.caption);
+    remainingCollaborators = remainingCollaborators.filter((u) => u !== badUsername);
+    result = await createFeedContainer(
+      imageUrl,
+      token,
+      igUserId,
+      post.caption,
+      remainingCollaborators.length ? remainingCollaborators : undefined
+    );
   }
 
   if ("error" in result) {
