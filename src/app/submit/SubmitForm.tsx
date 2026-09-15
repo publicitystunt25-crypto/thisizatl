@@ -85,6 +85,22 @@ function InstagramAndCollabFields() {
   );
 }
 
+function PhotoByEmailNote() {
+  return (
+    <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm text-zinc-700">
+      <p className="font-medium text-ink">Send us a photo separately</p>
+      <p className="mt-1">
+        Please email a photo to{" "}
+        <a href="mailto:info@thisizatl.com" className="font-medium text-brand-dark hover:underline">
+          info@thisizatl.com
+        </a>{" "}
+        after submitting this form, using the same name you enter below so we can match it to your
+        submission.
+      </p>
+    </div>
+  );
+}
+
 function FollowAndEmailFields() {
   return (
     <>
@@ -204,16 +220,7 @@ function ArtistFields() {
         />
       </div>
 
-      <div>
-        <label className={labelClasses}>Photo</label>
-        <input
-          type="file"
-          name="photo"
-          accept="image/*"
-          required
-          className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-dark"
-        />
-      </div>
+      <PhotoByEmailNote />
 
       <FollowAndEmailFields />
 
@@ -322,16 +329,7 @@ function OtherFields() {
         />
       </div>
 
-      <div>
-        <label className={labelClasses}>Photo</label>
-        <input
-          type="file"
-          name="photo"
-          accept="image/*"
-          required
-          className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-dark"
-        />
-      </div>
+      <PhotoByEmailNote />
 
       <FollowAndEmailFields />
 

@@ -25,6 +25,8 @@ Music: ${submission.musicUrl || "(not provided)"}
 Following ThisIzATL: ${submission.followsInstagram ? "Yes" : "No"}
 Collaboration pages: ${collaboratorUrls.length ? collaboratorUrls.join(", ") : "(none)"}
 
+No photo attached -- ${submission.artistName} was asked to email one to info@thisizatl.com separately. Add it via the edit page once it arrives.
+
 Review it here: ${reviewUrl}`;
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -67,6 +69,8 @@ Instagram: ${submission.instagramUrl || "(not provided)"}
 Link: ${submission.linkUrl || "(not provided)"}
 Following ThisIzATL: ${submission.followsInstagram ? "Yes" : "No"}
 Collaboration pages: ${collaboratorUrls.length ? collaboratorUrls.join(", ") : "(none)"}
+
+No photo attached -- ${submission.name} was asked to email one to info@thisizatl.com separately. Add it via the edit page once it arrives.
 
 Review it here: ${reviewUrl}`;
 
