@@ -1,0 +1,224 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { insertPost, setPostImage, hasRecentSubmissionByArtist } from "@/lib/db";
+import { slugify } from "@/lib/slug";
+import { processImageUpload } from "@/lib/image";
+import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
+import { generateProfileArticle, ProfileSubmission } from "@/lib/profile";
+import { sendSubmissionNotification, sendOtherSubmissionNotification } from "@/lib/email";
+import { normalizeInstagramInput, isInstagramUrl } from "@/lib/social";
+
+function required(formData: FormData, field: string): string {
+  const value = String(formData.get(field) || "").trim();
+  if (!value) throw new Error(`${field} is required`);
+  return value;
+}
+
+function optional(formData: FormData, field: string): string | null {
+  return String(formData.get(field) || "").trim() || null;
+}
+
+// Up to 5 additional Instagram accounts to invite as Feed-post collaborators
+// -- the submission form's "which pages should we collaborate with"
+// question, all sharing the name "collabHandle" so they collect into one
+// array here.
+function readCollaboratorUrls(formData: FormData): string[] {
+  return formData
+    .getAll("collabHandle")
+    .map((v) => normalizeInstagramInput(String(v)))
+    .filter((v): v is string => !!v)
+    .slice(0, 5);
+}
+
+export async function submitArtistAction(formData: FormData): Promise<void> {
+  // Honeypot: real visitors never see or fill this field (hidden via CSS),
+  // so anything in it means an automated bot filled out every input blindly.
+  if (String(formData.get("company") || "").trim()) {
+    redirect("/");
+  }
+
+  let instagramUrl = normalizeInstagramInput(String(formData.get("instagramUrl") || ""));
+  let musicUrl = optional(formData, "musicUrl");
+
+  // Someone occasionally pastes their Instagram link into the wrong field --
+  // if the Instagram question was left blank but the music-link field is
+  // actually an instagram.com URL, use that as their Instagram instead of
+  // filing it as a "Music" source where it'd never get tagged/collabed.
+  if (!instagramUrl && isInstagramUrl(musicUrl)) {
+    instagramUrl = musicUrl;
+    musicUrl = null;
+  }
+
+  const collaboratorUrls = readCollaboratorUrls(formData);
+
+  const submission: ArtistSubmission = {
+    artistName: required(formData, "artistName"),
+    pronouns: required(formData, "pronouns"),
+    hometown: optional(formData, "hometown"),
+    genre: required(formData, "genre"),
+    origin: required(formData, "origin"),
+    biggestInspiration: required(formData, "biggestInspiration"),
+    whatsNew: required(formData, "whatsNew"),
+    takeaway: optional(formData, "takeaway"),
+    bio: optional(formData, "bio"),
+    instagramUrl,
+    musicUrl,
+    followsInstagram: formData.get("collabFollowsInstagram") === "yes",
+    anythingElse: optional(formData, "anythingElse"),
+  };
+
+  const submitterEmail = required(formData, "submitterEmail");
+
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    throw new Error("A photo is required");
+  }
+  if (!photo.type.startsWith("image/")) {
+    throw new Error("Uploaded file is not an image");
+  }
+
+  // Guards against someone hitting back/reload and resubmitting a fresh page
+  // -- a disabled submit button can't catch that since it's a brand new page
+  // load. If this artist already has a submission from the last 10 minutes,
+  // treat this as a duplicate: skip the Claude call and DB insert entirely,
+  // but still show the normal "thanks" confirmation so it doesn't look broken.
+  if (await hasRecentSubmissionByArtist(submission.artistName)) {
+    redirect("/submissions/thanks");
+  }
+
+  const article = await generateSpotlightArticle(submission);
+
+  const sources: { title: string; url: string; source: string }[] = [];
+  if (submission.instagramUrl) {
+    sources.push({ title: "Follow on Instagram", url: submission.instagramUrl, source: "Instagram" });
+  }
+  if (submission.musicUrl) {
+    sources.push({ title: "Listen", url: submission.musicUrl, source: "Music" });
+  }
+  for (const url of collaboratorUrls) {
+    sources.push({ title: "Collaborate", url, source: "Collaborator" });
+  }
+
+  const slug = slugify(article.title);
+  const id = await insertPost({
+    slug,
+    title: article.title,
+    body: article.body,
+    sources,
+    similarity_note: null,
+    image_url: null,
+    image_credit_name: null,
+    image_credit_url: null,
+    category: article.category,
+    status: "draft",
+    author: "ThisIzATL Staff",
+    submitter_email: submitterEmail,
+  });
+
+  const raw = Buffer.from(await photo.arrayBuffer());
+  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName, { width, height }, focus);
+
+  try {
+    await sendSubmissionNotification(submission, id, collaboratorUrls);
+  } catch (err) {
+    console.error("Submission notification email failed:", err);
+  }
+
+  redirect("/submissions/thanks");
+}
+
+export async function submitOtherAction(formData: FormData): Promise<void> {
+  // Honeypot: real visitors never see or fill this field (hidden via CSS),
+  // so anything in it means an automated bot filled out every input blindly.
+  if (String(formData.get("company") || "").trim()) {
+    redirect("/");
+  }
+
+  let instagramUrl = normalizeInstagramInput(String(formData.get("instagramUrl") || ""));
+  let linkUrl = optional(formData, "linkUrl");
+
+  // Same cross-field detection as the artist form -- a link to their
+  // work/website that's actually an Instagram URL (this exact mixup
+  // happened with a live submission: an Instagram reel link filed under
+  // "Link to Your Work" instead of the Instagram question).
+  if (!instagramUrl && isInstagramUrl(linkUrl)) {
+    instagramUrl = linkUrl;
+    linkUrl = null;
+  }
+
+  const collaboratorUrls = readCollaboratorUrls(formData);
+
+  const submission: ProfileSubmission = {
+    name: required(formData, "name"),
+    pronouns: required(formData, "pronouns"),
+    hometown: optional(formData, "hometown"),
+    profession: required(formData, "profession"),
+    origin: required(formData, "origin"),
+    biggestInspiration: required(formData, "biggestInspiration"),
+    whatsNew: required(formData, "whatsNew"),
+    takeaway: optional(formData, "takeaway"),
+    bio: optional(formData, "bio"),
+    instagramUrl,
+    linkUrl,
+    followsInstagram: formData.get("collabFollowsInstagram") === "yes",
+    anythingElse: optional(formData, "anythingElse"),
+  };
+
+  const submitterEmail = required(formData, "submitterEmail");
+
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    throw new Error("A photo is required");
+  }
+  if (!photo.type.startsWith("image/")) {
+    throw new Error("Uploaded file is not an image");
+  }
+
+  // Same duplicate-submission guard as the artist path, keyed by name.
+  if (await hasRecentSubmissionByArtist(submission.name)) {
+    redirect("/submissions/thanks");
+  }
+
+  const article = await generateProfileArticle(submission);
+
+  const sources: { title: string; url: string; source: string }[] = [];
+  if (submission.instagramUrl) {
+    sources.push({ title: "Follow on Instagram", url: submission.instagramUrl, source: "Instagram" });
+  }
+  if (submission.linkUrl) {
+    sources.push({ title: "Visit", url: submission.linkUrl, source: "Website" });
+  }
+  for (const url of collaboratorUrls) {
+    sources.push({ title: "Collaborate", url, source: "Collaborator" });
+  }
+
+  const slug = slugify(article.title);
+  const id = await insertPost({
+    slug,
+    title: article.title,
+    body: article.body,
+    sources,
+    similarity_note: null,
+    image_url: null,
+    image_credit_name: null,
+    image_credit_url: null,
+    category: article.category,
+    status: "draft",
+    author: "ThisIzATL Staff",
+    submitter_email: submitterEmail,
+  });
+
+  const raw = Buffer.from(await photo.arrayBuffer());
+  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.name, { width, height }, focus);
+
+  try {
+    await sendOtherSubmissionNotification(submission, id, collaboratorUrls);
+  } catch (err) {
+    console.error("Submission notification email failed:", err);
+  }
+
+  redirect("/submissions/thanks");
+}
