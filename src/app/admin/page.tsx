@@ -7,6 +7,8 @@ import {
   deletePostAction,
   setFeaturedPostAction,
   unsetFeaturedPostAction,
+  setGoldenPeachAction,
+  unsetGoldenPeachAction,
   approvePostAction,
   acceptAllAction,
   retrySocialShareAction,
@@ -35,6 +37,11 @@ function PostRow({
           {post.is_featured && (
             <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
               ★ Featured
+            </span>
+          )}
+          {post.is_golden_peach && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+              🍑 Golden Peach
             </span>
           )}
           {post.status === "draft" && (
@@ -219,6 +226,31 @@ function PostRow({
               </button>
             </form>
           ))}
+        {!pending &&
+          post.status === "published" &&
+          (post.is_golden_peach ? (
+            <form
+              action={async () => {
+                "use server";
+                await unsetGoldenPeachAction(post.id);
+              }}
+            >
+              <button type="submit" className="text-zinc-500 hover:underline">
+                Remove Golden Peach
+              </button>
+            </form>
+          ) : (
+            <form
+              action={async () => {
+                "use server";
+                await setGoldenPeachAction(post.id);
+              }}
+            >
+              <button type="submit" className="font-medium text-yellow-700 hover:underline">
+                🍑 Golden Peach
+              </button>
+            </form>
+          ))}
         {!(pending && post.status === "draft") && (
           <form
             action={async () => {
@@ -273,7 +305,7 @@ export default async function AdminDashboard() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
           {pending.length > 0 && (
-            <aside className="lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
+            <aside className="lg:sticky lg:top-8 lg:max-h-[calc(100vh-4rem)] lg:w-80 lg:shrink-0 lg:overflow-y-auto">
               <h2 className="font-display mb-3 flex items-center gap-2 text-lg font-bold text-ink">
                 <span className="h-4 w-1 rounded-full bg-green-600" />
                 Pending Review ({pending.length})
