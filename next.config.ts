@@ -10,6 +10,20 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  // Temporary: Render's platform-level WAF is blocking any submission with a
+  // photo over ~34KB, unrelated to anything in this app's own code (confirmed
+  // via a bare-bones test page with zero processing). Send /submit traffic to
+  // the identical form running on Vercel, which doesn't have this problem,
+  // until Render resolves it. Remove this once that's fixed.
+  async redirects() {
+    return [
+      {
+        source: "/submit",
+        destination: "https://thisizatl.vercel.app/submissions",
+        permanent: false,
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "25mb",
