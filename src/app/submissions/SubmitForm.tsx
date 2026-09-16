@@ -23,6 +23,24 @@ function Honeypot() {
 
 const MAX_COLLAB_HANDLES = 5;
 
+// Vercel's serverless functions hard-cap the request body at 4.5MB, no
+// exceptions on any plan -- a photo bigger than that crashes the whole
+// submission with a raw FUNCTION_PAYLOAD_TOO_LARGE error and no feedback.
+// Checking client-side first (with margin for the rest of the form's text)
+// lets us reject it before it ever leaves the browser, with a clear message,
+// and without losing anything else the person already typed.
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+
+function formatMB(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1);
+}
+
+function PhotoSizeError({ message }: { message: string }) {
+  return (
+    <p className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">{message}</p>
+  );
+}
+
 function InstagramAndCollabFields() {
   const [collabCount, setCollabCount] = useState(1);
 
@@ -120,8 +138,27 @@ function FollowAndEmailFields() {
 }
 
 function ArtistFields() {
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const photo = new FormData(e.currentTarget).get("photo");
+    if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) {
+      e.preventDefault();
+      setPhotoError(
+        `That photo is ${formatMB(photo.size)}MB, which is too large -- please choose one under ${formatMB(MAX_PHOTO_BYTES)}MB and try again. Everything else you entered is still here.`
+      );
+      return;
+    }
+    setPhotoError(null);
+  }
+
   return (
-    <form action={submitArtistAction} encType="multipart/form-data" className="mt-8 space-y-5">
+    <form
+      action={submitArtistAction}
+      onSubmit={handleSubmit}
+      encType="multipart/form-data"
+      className="mt-8 space-y-5"
+    >
       <Honeypot />
 
       <div>
@@ -220,6 +257,7 @@ function ArtistFields() {
       </div>
 
       <PhotoField />
+      {photoError && <PhotoSizeError message={photoError} />}
 
       <FollowAndEmailFields />
 
@@ -231,8 +269,27 @@ function ArtistFields() {
 }
 
 function OtherFields() {
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const photo = new FormData(e.currentTarget).get("photo");
+    if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) {
+      e.preventDefault();
+      setPhotoError(
+        `That photo is ${formatMB(photo.size)}MB, which is too large -- please choose one under ${formatMB(MAX_PHOTO_BYTES)}MB and try again. Everything else you entered is still here.`
+      );
+      return;
+    }
+    setPhotoError(null);
+  }
+
   return (
-    <form action={submitOtherAction} encType="multipart/form-data" className="mt-8 space-y-5">
+    <form
+      action={submitOtherAction}
+      onSubmit={handleSubmit}
+      encType="multipart/form-data"
+      className="mt-8 space-y-5"
+    >
       <Honeypot />
 
       <div>
@@ -329,6 +386,7 @@ function OtherFields() {
       </div>
 
       <PhotoField />
+      {photoError && <PhotoSizeError message={photoError} />}
 
       <FollowAndEmailFields />
 
