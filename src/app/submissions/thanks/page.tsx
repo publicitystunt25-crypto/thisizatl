@@ -4,7 +4,7 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Submission Received (Test)",
+  title: "Submission Received",
   robots: { index: false, follow: false },
 };
 
@@ -18,13 +18,14 @@ export default function TestSubmissionsThanksPage() {
           Got it!
         </h1>
         <p className="mt-4 text-[17px] leading-relaxed text-zinc-700">
-          Your test submission (with photo upload) went through.
+          Your submission is in. Our team will review it and, once approved,
+          your feature will go live on ThisIzATL.
         </p>
         <Link
-          href="/submissions"
+          href="/"
           className="mt-8 inline-block rounded-full bg-brand px-6 py-2.5 font-medium text-white hover:bg-brand-dark"
         >
-          Back to test form
+          Back to ThisIzATL
         </Link>
       </main>
 
