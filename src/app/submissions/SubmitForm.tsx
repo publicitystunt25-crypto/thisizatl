@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { submitArtistAction, submitOtherAction } from "./actions";
 import SubmitButton from "./SubmitButton";
+import { useFormDraft, ARTIST_DRAFT_KEY, OTHER_DRAFT_KEY } from "./formDraft";
 
 const inputClasses =
   "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none";
@@ -139,6 +140,7 @@ function FollowAndEmailFields() {
 
 function ArtistFields() {
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const formRef = useFormDraft(ARTIST_DRAFT_KEY);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     const photo = new FormData(e.currentTarget).get("photo");
@@ -154,6 +156,7 @@ function ArtistFields() {
 
   return (
     <form
+      ref={formRef}
       action={submitArtistAction}
       onSubmit={handleSubmit}
       encType="multipart/form-data"
@@ -270,6 +273,7 @@ function ArtistFields() {
 
 function OtherFields() {
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const formRef = useFormDraft(OTHER_DRAFT_KEY);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     const photo = new FormData(e.currentTarget).get("photo");
@@ -285,6 +289,7 @@ function OtherFields() {
 
   return (
     <form
+      ref={formRef}
       action={submitOtherAction}
       onSubmit={handleSubmit}
       encType="multipart/form-data"

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import ClearDraftOnMount from "../ClearDraftOnMount";
 
 export const metadata: Metadata = {
   title: "Submission Received",
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 export default function TestSubmissionsThanksPage() {
   return (
     <div className="flex min-h-screen flex-col">
+      <ClearDraftOnMount />
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-xl flex-1 px-6 py-16 text-center">
