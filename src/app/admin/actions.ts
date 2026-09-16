@@ -20,6 +20,8 @@ import {
   clearPostImage,
   setFeaturedPost,
   unsetFeaturedPost,
+  setGoldenPeach,
+  unsetGoldenPeach,
   setSocialShared,
   setIgFeedShared,
   setIgMediaId,
@@ -247,6 +249,20 @@ export async function setFeaturedPostAction(id: number): Promise<void> {
 export async function unsetFeaturedPostAction(id: number): Promise<void> {
   await requireAdmin();
   await unsetFeaturedPost(id);
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function setGoldenPeachAction(id: number): Promise<void> {
+  await requireAdmin();
+  await setGoldenPeach(id);
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function unsetGoldenPeachAction(id: number): Promise<void> {
+  await requireAdmin();
+  await unsetGoldenPeach(id);
   revalidatePath("/");
   revalidatePath("/admin");
 }

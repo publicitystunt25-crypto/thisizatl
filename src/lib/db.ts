@@ -53,6 +53,7 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS focus_y REAL;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS ig_feed_shared BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS ig_media_id TEXT;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_golden_peach BOOLEAN NOT NULL DEFAULT false;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -99,6 +100,7 @@ export interface Post {
   focus_y: number | null;
   ig_feed_shared: boolean;
   ig_media_id: string | null;
+  is_golden_peach: boolean;
 }
 
 export interface PostImage {
@@ -284,7 +286,7 @@ export async function clearSchedule(id: number): Promise<void> {
 export async function getDueScheduledPosts(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
      FROM posts WHERE status = 'scheduled' AND scheduled_for <= now()`
   );
   return res.rows;
@@ -383,18 +385,31 @@ export async function unsetFeaturedPost(id: number): Promise<void> {
   await pool.query(`UPDATE posts SET is_featured = false WHERE id = $1`, [id]);
 }
 
+// Unlike is_featured (exclusive -- only one homepage hero at a time), Golden
+// Peach is a standing honor that can apply to any number of posts over time,
+// picked by staff whenever rather than on a fixed schedule.
+export async function setGoldenPeach(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE posts SET is_golden_peach = true WHERE id = $1`, [id]);
+}
+
+export async function unsetGoldenPeach(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE posts SET is_golden_peach = false WHERE id = $1`, [id]);
+}
+
 export async function getAllPosts(category?: string): Promise<Post[]> {
   await ensureInit();
   if (category) {
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
        FROM posts WHERE category = $1 AND status = 'published' ORDER BY created_at DESC`,
       [category]
     );
     return res.rows;
   }
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
      FROM posts WHERE status = 'published' ORDER BY created_at DESC`
   );
   return res.rows;
@@ -403,7 +418,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -412,7 +427,7 @@ export async function getAllPostsAdmin(): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
      FROM posts WHERE id = $1`,
     [id]
   );
@@ -423,7 +438,7 @@ export const getPostBySlug = cache(
   async (slug: string): Promise<Post | undefined> => {
     await ensureInit();
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
        FROM posts WHERE slug = $1 AND status = 'published'`,
       [slug]
     );
