@@ -18,6 +18,13 @@ export default async function InstagramPostPreview({
   body: string;
   sourcesJson: string;
 }) {
+  // The feed-image endpoint sends Cache-Control: no-store, but that's not
+  // always honored by every layer between here and the viewer (the same
+  // real posting flow needed a cache-busting param for this exact reason --
+  // a stale cached render of this composite got served, with old text baked
+  // into the image, well after the underlying code was already fixed). A
+  // fresh timestamp per render guards against that regardless of the cause.
+  const imageCacheBuster = Date.now();
   const { instagramHandle, collaboratorHandles } = getInstagramHandlesFromSources(sourcesJson);
 
   if (!instagramHandle) {
@@ -46,9 +53,9 @@ export default async function InstagramPostPreview({
           <span className="text-sm font-semibold text-ink">thisizatl</span>
         </div>
         <div className="relative aspect-[4/5] w-full bg-black">
-          {/* eslint-disable-next-line @next/next/no-img-element -- external composited JPEG, not an optimizable local asset. No cache-busting param needed: the endpoint itself is Cache-Control: no-store. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- external composited JPEG, not an optimizable local asset. */}
           <img
-            src={`/api/feed-image/${postId}`}
+            src={`/api/feed-image/${postId}?t=${imageCacheBuster}`}
             alt=""
             className="h-full w-full object-cover"
           />
