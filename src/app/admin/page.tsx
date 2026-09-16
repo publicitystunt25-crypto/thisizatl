@@ -106,8 +106,10 @@ function PostRow({
           </>
         )}
         <Link
-          href={`/admin/${post.id}/edit`}
+          href={`https://thisizatl.vercel.app/admin/${post.id}/edit`}
+          target="_blank"
           className="text-brand-dark hover:underline"
+          title="Opens on the Vercel deployment -- Render's WAF blocks photo uploads on the edit page"
         >
           Edit
         </Link>
