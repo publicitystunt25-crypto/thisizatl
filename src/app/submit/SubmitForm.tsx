@@ -25,12 +25,12 @@ function Honeypot() {
 const MAX_COLLAB_HANDLES = 5;
 
 // Render's own configured limit (see next.config.ts's serverActions.bodySizeLimit)
-// is 25MB; this stays comfortably under that so a rejection is a clear
+// is 50MB; this stays comfortably under that so a rejection is a clear
 // message here rather than the server dropping the connection partway
 // through a huge upload. Checking client-side first also means the rest of
 // the form's answers survive a too-big photo instead of the whole submit
 // attempt failing.
-const MAX_PHOTO_BYTES = 20 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 45 * 1024 * 1024;
 
 function formatMB(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);

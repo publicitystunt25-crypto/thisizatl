@@ -12,7 +12,10 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: "25mb",
+      // Render has no payload ceiling of its own (that was the WAF, now
+      // fixed) -- this is the only real cap left. Set well above what any
+      // real phone photo needs, with margin for the rest of the form.
+      bodySizeLimit: "50mb",
       // Next.js rejects a Server Action POST with a 403 if the browser's
       // Origin header doesn't exactly match the host it thinks it's running
       // on (CSRF protection) -- Render serves this app on multiple domains
