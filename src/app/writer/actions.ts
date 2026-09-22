@@ -15,6 +15,7 @@ import {
   deletePost,
   getPostById,
   getPostImage,
+  getPostImages,
   getGalleryImageBytes,
   setPostImage,
   addPostImages,
@@ -82,6 +83,14 @@ async function applyPhotoChoice(
 
   if (mainChoice.startsWith("existing:")) {
     const galleryId = Number(mainChoice.slice("existing:".length));
+    // getGalleryImageBytes takes a bare id with no post scoping -- confirm
+    // this gallery photo actually belongs to postId first, or a writer could
+    // promote a photo from any post (including someone else's) into her own
+    // article just by knowing its id.
+    const ownGalleryImages = await getPostImages(postId);
+    if (!ownGalleryImages.some((img) => img.id === galleryId)) {
+      throw new Error("Selected main photo not found");
+    }
     const promoted = await getGalleryImageBytes(galleryId);
     if (!promoted) throw new Error("Selected main photo not found");
     const meta = await sharp(promoted.data).metadata();
@@ -256,6 +265,15 @@ export async function deleteWriterGalleryImageAction(postId: number, imageId: nu
   const existing = await getPostById(postId);
   if (!existing || existing.author !== writer.name) {
     throw new Error("Post not found");
+  }
+
+  // deletePostImageRow takes a bare image id with no post scoping -- confirm
+  // this image actually belongs to postId first, or a writer could delete
+  // any gallery row on any post (including someone else's) just by knowing
+  // its id.
+  const galleryImages = await getPostImages(postId);
+  if (!galleryImages.some((img) => img.id === imageId)) {
+    throw new Error("Photo not found on this post");
   }
 
   await deletePostImageRow(imageId);
