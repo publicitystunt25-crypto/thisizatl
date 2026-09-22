@@ -31,11 +31,7 @@ export default async function WriterPage({
       <main className="mx-auto max-w-2xl px-6 py-8">
         {posted && (
           <div className="mb-6 rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800">
-            Your article was saved. If you have a photo for it, email it to{" "}
-            <a href="mailto:info@thisizatl.com" className="font-medium underline">
-              info@thisizatl.com
-            </a>{" "}
-            with the article title in the subject line -- we'll attach it on our end.
+            Your article was saved.
           </div>
         )}
 
@@ -44,7 +40,7 @@ export default async function WriterPage({
           Byline will be credited to <span className="font-medium text-ink">{writer.name}</span>.
         </p>
 
-        <form action={createWriterPostAction} className="mt-6 space-y-5">
+        <form action={createWriterPostAction} className="mt-6 space-y-5" encType="multipart/form-data">
           <div>
             <label className="block text-sm font-medium text-zinc-700">Title</label>
             <input
@@ -93,6 +89,26 @@ export default async function WriterPage({
                 <option value="published">Publish now</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-700">Photo (optional)</label>
+            <input
+              type="file"
+              name="photo"
+              accept="image/*"
+              className="mt-1 w-full text-sm text-zinc-700 file:mr-3 file:rounded-full file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-700">Photo credit (optional)</label>
+            <input
+              type="text"
+              name="photoCredit"
+              placeholder="e.g. Photo by Jane Doe"
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+            />
           </div>
 
           <button

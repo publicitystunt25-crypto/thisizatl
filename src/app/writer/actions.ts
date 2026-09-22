@@ -9,10 +9,11 @@ import {
   expectedWriterToken,
   requireWriter,
 } from "@/lib/auth";
-import { insertPost, getPostById, setSocialShared } from "@/lib/db";
+import { insertPost, getPostById, setPostImage, setSocialShared } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 import { shareNewPost } from "@/lib/social";
+import { processImageUpload } from "@/lib/image";
 
 export async function writerLoginAction(formData: FormData): Promise<void> {
   const username = String(formData.get("username") || "").trim();
@@ -68,6 +69,17 @@ export async function createWriterPostAction(formData: FormData): Promise<void> 
     status,
     author: writer.name,
   });
+
+  const photo = formData.get("photo");
+  if (photo instanceof File && photo.size > 0) {
+    if (!photo.type.startsWith("image/")) {
+      throw new Error("Uploaded file is not an image");
+    }
+    const credit = String(formData.get("photoCredit") || "").trim() || null;
+    const raw = Buffer.from(await photo.arrayBuffer());
+    const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+    await setPostImage(id, buffer, mime, `/api/uploads/${id}`, credit, { width, height }, focus);
+  }
 
   if (status === "published") {
     const post = await getPostById(id);

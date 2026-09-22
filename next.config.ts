@@ -22,6 +22,15 @@ const nextConfig: NextConfig = {
         destination: "https://thisizatl.vercel.app/submissions",
         permanent: false,
       },
+      {
+        // The writer form now includes a photo upload, which hits the same
+        // Render WAF issue as /submit -- send writers to the identical form
+        // on Vercel instead. Remove alongside the /submit redirect above
+        // once Render fixes the WAF.
+        source: "/writer/:path*",
+        destination: "https://thisizatl.vercel.app/writer/:path*",
+        permanent: false,
+      },
     ];
   },
   experimental: {
