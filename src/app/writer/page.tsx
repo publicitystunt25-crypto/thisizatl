@@ -8,6 +8,12 @@ import DeleteButton from "./DeleteButton";
 import PhotoPicker from "./PhotoPicker";
 
 export const dynamic = "force-dynamic";
+// Vercel's default serverless timeout (10s) is too tight once a save
+// includes a real photo upload plus the vision-based focus-detection call --
+// the request gets killed mid-flight with no error shown to the writer, who
+// just sees "Saving..." stop responding. 60s covers several real phone
+// photos plus that one AI call with real margin.
+export const maxDuration = 60;
 
 export default async function WriterPage({
   searchParams,

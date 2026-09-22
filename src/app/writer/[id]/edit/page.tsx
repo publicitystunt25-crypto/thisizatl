@@ -9,6 +9,10 @@ import DeleteButton from "../../DeleteButton";
 import PhotoPicker from "../../PhotoPicker";
 
 export const dynamic = "force-dynamic";
+// See src/app/writer/page.tsx -- same reasoning: the default 10s serverless
+// timeout is too tight for a save that includes a real photo upload plus the
+// vision-based focus-detection call.
+export const maxDuration = 60;
 
 export default async function EditWriterPostPage({
   params,
