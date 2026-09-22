@@ -125,7 +125,7 @@ async function saveGalleryIfPresent(postId: number, formData: FormData) {
     }
     const credit = String(formData.get(`gallery_credit_${i}`) || "").trim() || null;
     const raw = Buffer.from(await file.arrayBuffer());
-    const { buffer, mime } = await processImageUpload(raw, 1200);
+    const { buffer, mime } = await processImageUpload(raw, 1200, false);
     images.push({ data: buffer, mime, credit });
   }
   await addPostImages(postId, images);

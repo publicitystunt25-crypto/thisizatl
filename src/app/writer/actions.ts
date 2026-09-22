@@ -26,15 +26,22 @@ import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 import { shareNewPost, deleteFacebookPost } from "@/lib/social";
 import { processImageUpload } from "@/lib/image";
+import type { VisionFocus } from "@/lib/visionFocus";
 import sharp from "sharp";
 
 // Reads every "photos" file plus its matching "photo_credit_<i>" text field,
 // in the same order the client rendered them -- so "new:<i>" from the main-
-// choice radio lines up with photos[i] here.
+// choice radio lines up with photos[i] here. Focus detection (a Claude
+// vision call, several seconds each) only runs for whichever upload is
+// actually going to be the main photo -- it's the only one that reads
+// focus_x/focus_y, and running it for every photo is what made picking
+// several at once look "stuck" for far longer than the upload itself takes.
 async function readNewPhotos(
-  formData: FormData
-): Promise<{ buffer: Buffer; mime: string; width: number; height: number; credit: string | null }[]> {
+  formData: FormData,
+  mainChoice: string
+): Promise<{ buffer: Buffer; mime: string; width: number; height: number; credit: string | null; focus: VisionFocus | null }[]> {
   const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+  const mainNewIndex = mainChoice.startsWith("new:") ? Number(mainChoice.slice("new:".length)) : -1;
   const photos = [];
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -43,8 +50,8 @@ async function readNewPhotos(
     }
     const credit = String(formData.get(`photo_credit_${i}`) || "").trim() || null;
     const raw = Buffer.from(await file.arrayBuffer());
-    const { buffer, mime, width, height } = await processImageUpload(raw, 1600);
-    photos.push({ buffer, mime, width, height, credit });
+    const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600, i === mainNewIndex);
+    photos.push({ buffer, mime, width, height, credit, focus });
   }
   return photos;
 }
@@ -57,7 +64,7 @@ async function readNewPhotos(
 async function applyPhotoChoice(
   postId: number,
   mainChoice: string,
-  newPhotos: { buffer: Buffer; mime: string; width: number; height: number; credit: string | null }[]
+  newPhotos: { buffer: Buffer; mime: string; width: number; height: number; credit: string | null; focus: VisionFocus | null }[]
 ): Promise<void> {
   const existing = await getPostById(postId);
   const galleryOverflow = newPhotos.filter((_, i) => `new:${i}` !== mainChoice);
@@ -76,7 +83,7 @@ async function applyPhotoChoice(
     await setPostImage(postId, chosen.buffer, chosen.mime, `/api/uploads/${postId}`, chosen.credit, {
       width: chosen.width,
       height: chosen.height,
-    }, null);
+    }, chosen.focus);
     await addPostImages(postId, galleryOverflow.map((p) => ({ data: p.buffer, mime: p.mime, credit: p.credit })));
     return;
   }
@@ -169,9 +176,9 @@ export async function createWriterPostAction(formData: FormData): Promise<void> 
     author: writer.name,
   });
 
-  const newPhotos = await readNewPhotos(formData);
+  const mainChoice = String(formData.get("mainChoice") || "new:0");
+  const newPhotos = await readNewPhotos(formData, mainChoice);
   if (newPhotos.length > 0) {
-    const mainChoice = String(formData.get("mainChoice") || "new:0");
     await applyPhotoChoice(id, mainChoice, newPhotos);
   }
 
@@ -216,8 +223,8 @@ export async function updateWriterPostAction(id: number, formData: FormData): Pr
     status,
   });
 
-  const newPhotos = await readNewPhotos(formData);
   const mainChoice = String(formData.get("mainChoice") || "keep");
+  const newPhotos = await readNewPhotos(formData, mainChoice);
   if (newPhotos.length > 0 || mainChoice.startsWith("existing:")) {
     await applyPhotoChoice(id, mainChoice, newPhotos);
   }

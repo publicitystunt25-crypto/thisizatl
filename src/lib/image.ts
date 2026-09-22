@@ -7,7 +7,14 @@ import { detectFocusWithVision, type VisionFocus } from "./visionFocus";
 // database for no visual benefit. Downscale and recompress at upload time.
 export async function processImageUpload(
   buffer: Buffer,
-  maxWidth: number
+  maxWidth: number,
+  // Focus detection is a Claude vision call -- several seconds each -- and
+  // only matters for the one photo actually used as a post's main/featured
+  // image (that's the only place focus_x/focus_y gets read). Skipping it for
+  // gallery photos isn't just wasted cost: uploading several photos at once
+  // previously ran this call once per photo in sequence, which is what made
+  // a multi-photo upload look "stuck" for many seconds longer than it needed to.
+  computeFocus = true
 ): Promise<{ buffer: Buffer; mime: string; width: number; height: number; focus: VisionFocus | null }> {
   const resized = sharp(buffer)
     .rotate()
@@ -15,7 +22,9 @@ export async function processImageUpload(
     .jpeg({ quality: 82, mozjpeg: true });
   const out = await resized.toBuffer({ resolveWithObject: true });
 
-  const focus = await detectFocusWithVision(out.data, out.info.width, out.info.height);
+  const focus = computeFocus
+    ? await detectFocusWithVision(out.data, out.info.width, out.info.height)
+    : null;
 
   return {
     buffer: out.data,
