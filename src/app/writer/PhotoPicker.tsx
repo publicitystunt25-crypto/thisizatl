@@ -30,10 +30,33 @@ export default function PhotoPicker({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
+  // A native file input's FileList is fully replaced by the browser every
+  // time someone picks files, not appended to -- clicking "Add more photos"
+  // a second time was silently discarding the first batch instead of adding
+  // to it, which read as "every photo I upload replaces the one before it".
+  // Accumulating in React state and writing the merged set back onto the
+  // input (so the actual form submission includes everything) fixes that.
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    setNewFiles(files);
-    setPreviews(files.map((f) => URL.createObjectURL(f)));
+    const picked = Array.from(e.target.files || []);
+    if (picked.length === 0) return; // the picker was cancelled
+
+    const merged = [...newFiles, ...picked];
+    setNewFiles(merged);
+    setPreviews((prev) => [...prev, ...picked.map((f) => URL.createObjectURL(f))]);
+
+    const dt = new DataTransfer();
+    merged.forEach((f) => dt.items.add(f));
+    e.target.files = dt.files;
+  }
+
+  function removeNewFile(index: number) {
+    const updated = newFiles.filter((_, i) => i !== index);
+    setNewFiles(updated);
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
+
+    const dt = new DataTransfer();
+    updated.forEach((f) => dt.items.add(f));
+    if (inputRef.current) inputRef.current.files = dt.files;
   }
 
   function handleDeleteExisting(imageId: number) {
@@ -105,6 +128,7 @@ export default function PhotoPicker({
                 url={src}
                 radioValue={`new:${i}`}
                 defaultChecked={!hasAnyExisting && i === 0}
+                onDelete={() => removeNewFile(i)}
               />
               <input
                 type="text"
