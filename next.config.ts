@@ -19,15 +19,22 @@ const nextConfig: NextConfig = {
     // and a generic, unhelpful React error client-side. /submit has no
     // middleware, which is why the same upload worked fine there.
     //
-    // Both this and bodySizeLimit below were raised to 50mb first, which a
-    // real multi-photo writer upload still exceeded ("Error: Body exceeded
-    // 50mb limit."). Render itself has no payload ceiling (that was the WAF,
-    // now fixed), so there's no infrastructure reason to keep either of
-    // these tight -- set generously high so total photo count/size isn't
-    // the thing writers have to think about.
-    proxyClientMaxBodySize: "500mb",
+    // Raising both of these to 500mb (after 50mb rejected a real upload)
+    // didn't let bigger uploads through -- it crashed the entire server with
+    // an out-of-memory kill instead (confirmed via Render's event log,
+    // three times in a row: memoryLimit "512Mi"). This service has 512MB of
+    // RAM total; sharp decodes a JPEG to a raw, uncompressed bitmap while
+    // resizing it, which balloons well past the original file's size, and
+    // several large photos in one request added up past what's physically
+    // available. 50mb is the highest value that's actually been confirmed to
+    // reject cleanly instead of taking the whole site down -- combined with
+    // processing photos one at a time now (see src/app/writer/actions.ts)
+    // rather than all at once, real multi-photo uploads should fit well
+    // under this. Raising it further needs more RAM on the Render plan
+    // first, not a bigger number here.
+    proxyClientMaxBodySize: "50mb",
     serverActions: {
-      bodySizeLimit: "500mb",
+      bodySizeLimit: "50mb",
       // Next.js rejects a Server Action POST with a 403 if the browser's
       // Origin header doesn't exactly match the host it thinks it's running
       // on (CSRF protection) -- Render serves this app on multiple domains

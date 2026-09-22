@@ -1,6 +1,18 @@
 import sharp from "sharp";
 import { detectFocusWithVision, type VisionFocus } from "./visionFocus";
 
+// This server runs with 512MB of RAM total (a real, confirmed ceiling --
+// several photo uploads in a row have OOM-killed the entire process, taking
+// the whole site down for every visitor, not just the upload). sharp/libvips
+// caches decoded operations by default to speed up repeated processing of
+// the same image, which is never useful here (every upload is processed
+// exactly once) and just holds extra decoded bitmap data in memory.
+// Disabling it, and capping libvips to one concurrent operation, keeps
+// memory use to roughly one photo at a time instead of compounding across
+// concurrent requests.
+sharp.cache(false);
+sharp.concurrency(1);
+
 // Phone/camera uploads can come in at 4000px+ wide and several MB -- the site
 // never displays them larger than ~1600px, so storing (and re-serving) the
 // original just makes every page load fetch multi-megabyte blobs from the

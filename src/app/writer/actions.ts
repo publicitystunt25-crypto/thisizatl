@@ -26,67 +26,40 @@ import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 import { shareNewPost, deleteFacebookPost } from "@/lib/social";
 import { processImageUpload } from "@/lib/image";
-import type { VisionFocus } from "@/lib/visionFocus";
 import sharp from "sharp";
 
-// Reads every "photos" file plus its matching "photo_credit_<i>" text field,
-// in the same order the client rendered them -- so "new:<i>" from the main-
-// choice radio lines up with photos[i] here. Focus detection (a Claude
-// vision call, several seconds each) only runs for whichever upload is
-// actually going to be the main photo -- it's the only one that reads
-// focus_x/focus_y, and running it for every photo is what made picking
-// several at once look "stuck" for far longer than the upload itself takes.
-async function readNewPhotos(
+// Applies the writer's "which photo is the main one" choice and writes each
+// new upload to the database as soon as it's processed, one at a time --
+// rather than decoding/resizing every photo into memory first and only then
+// writing any of them. This server runs with 512MB of RAM total; sharp
+// decodes a JPEG to a raw, uncompressed bitmap while resizing it, which can
+// balloon well past the original file's size, so holding several photos'
+// worth of that in memory at once is what was crashing the whole site with
+// an out-of-memory kill on a multi-photo upload -- not a size-limit
+// rejection, an actual server crash affecting every visitor. Processing and
+// storing one photo before starting the next keeps peak memory to roughly
+// one photo's worth regardless of how many are attached.
+//
+// Whichever image loses the "main" slot is preserved by moving it into the
+// gallery rather than deleted -- switching the main photo shouldn't destroy
+// a photo that was already attached to the article.
+async function processAndSaveNewPhotos(
+  postId: number,
   formData: FormData,
   mainChoice: string
-): Promise<{ buffer: Buffer; mime: string; width: number; height: number; credit: string | null; focus: VisionFocus | null }[]> {
-  const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
-  const mainNewIndex = mainChoice.startsWith("new:") ? Number(mainChoice.slice("new:".length)) : -1;
-  const photos = [];
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    if (!file.type.startsWith("image/")) {
-      throw new Error("Uploaded file is not an image");
-    }
-    const credit = String(formData.get(`photo_credit_${i}`) || "").trim() || null;
-    const raw = Buffer.from(await file.arrayBuffer());
-    const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600, i === mainNewIndex);
-    photos.push({ buffer, mime, width, height, credit, focus });
-  }
-  return photos;
-}
-
-// Applies the writer's "which photo is the main one" choice, given the new
-// photos just uploaded (readNewPhotos above) and, for an edit, whatever the
-// post already had. Whichever image loses the "main" slot is preserved by
-// moving it into the gallery rather than deleted -- switching the main photo
-// shouldn't destroy a photo that was already attached to the article.
-async function applyPhotoChoice(
-  postId: number,
-  mainChoice: string,
-  newPhotos: { buffer: Buffer; mime: string; width: number; height: number; credit: string | null; focus: VisionFocus | null }[]
 ): Promise<void> {
-  const existing = await getPostById(postId);
-  const galleryOverflow = newPhotos.filter((_, i) => `new:${i}` !== mainChoice);
+  const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+  // No new files and no "promote an existing gallery photo" choice means
+  // there's nothing to do -- the default mainChoice ("new:0"/"keep") when no
+  // photo was ever attached shouldn't be treated as a real selection.
+  if (files.length === 0 && !mainChoice.startsWith("existing:")) return;
 
-  if (mainChoice.startsWith("new:")) {
-    const index = Number(mainChoice.slice("new:".length));
-    const chosen = newPhotos[index];
-    if (!chosen) throw new Error("Selected main photo not found");
-
-    if (existing?.image_url) {
-      const oldMain = await getPostImage(postId);
-      if (oldMain) {
-        await addPostImages(postId, [{ data: oldMain.data, mime: oldMain.mime, credit: existing.image_credit }]);
-      }
-    }
-    await setPostImage(postId, chosen.buffer, chosen.mime, `/api/uploads/${postId}`, chosen.credit, {
-      width: chosen.width,
-      height: chosen.height,
-    }, chosen.focus);
-    await addPostImages(postId, galleryOverflow.map((p) => ({ data: p.buffer, mime: p.mime, credit: p.credit })));
-    return;
+  const mainNewIndex = mainChoice.startsWith("new:") ? Number(mainChoice.slice("new:".length)) : -1;
+  if (files.length > 0 && mainNewIndex >= 0 && !files[mainNewIndex]) {
+    throw new Error("Selected main photo not found");
   }
+
+  const existing = await getPostById(postId);
 
   if (mainChoice.startsWith("existing:")) {
     const galleryId = Number(mainChoice.slice("existing:".length));
@@ -113,12 +86,32 @@ async function applyPhotoChoice(
       height: meta.height ?? 0,
     }, null);
     await deletePostImageRow(galleryId);
-    await addPostImages(postId, newPhotos.map((p) => ({ data: p.buffer, mime: p.mime, credit: p.credit })));
-    return;
+  } else if (mainNewIndex >= 0 && existing?.image_url) {
+    const oldMain = await getPostImage(postId);
+    if (oldMain) {
+      await addPostImages(postId, [{ data: oldMain.data, mime: oldMain.mime, credit: existing.image_credit }]);
+    }
   }
 
-  // "keep" -- main photo (if any) is unchanged; every new upload just joins the gallery.
-  await addPostImages(postId, newPhotos.map((p) => ({ data: p.buffer, mime: p.mime, credit: p.credit })));
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Uploaded file is not an image");
+    }
+    const credit = String(formData.get(`photo_credit_${i}`) || "").trim() || null;
+    const raw = Buffer.from(await file.arrayBuffer());
+    const isMain = i === mainNewIndex;
+    const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600, isMain);
+
+    if (isMain) {
+      await setPostImage(postId, buffer, mime, `/api/uploads/${postId}`, credit, { width, height }, focus);
+    } else {
+      await addPostImages(postId, [{ data: buffer, mime, credit }]);
+    }
+    // buffer/raw fall out of scope here and can be garbage collected before
+    // the next file is even read off disk, instead of all of them living
+    // until the whole batch finishes.
+  }
 }
 
 export async function writerLoginAction(formData: FormData): Promise<void> {
@@ -177,10 +170,7 @@ export async function createWriterPostAction(formData: FormData): Promise<void> 
   });
 
   const mainChoice = String(formData.get("mainChoice") || "new:0");
-  const newPhotos = await readNewPhotos(formData, mainChoice);
-  if (newPhotos.length > 0) {
-    await applyPhotoChoice(id, mainChoice, newPhotos);
-  }
+  await processAndSaveNewPhotos(id, formData, mainChoice);
 
   if (status === "published") {
     const post = await getPostById(id);
@@ -224,10 +214,7 @@ export async function updateWriterPostAction(id: number, formData: FormData): Pr
   });
 
   const mainChoice = String(formData.get("mainChoice") || "keep");
-  const newPhotos = await readNewPhotos(formData, mainChoice);
-  if (newPhotos.length > 0 || mainChoice.startsWith("existing:")) {
-    await applyPhotoChoice(id, mainChoice, newPhotos);
-  }
+  await processAndSaveNewPhotos(id, formData, mainChoice);
 
   if (existing.status !== "published" && status === "published") {
     const post = await getPostById(id);
