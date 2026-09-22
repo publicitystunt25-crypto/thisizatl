@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { submitArtistAction, submitOtherAction } from "./actions";
 import SubmitButton from "./SubmitButton";
+import { useFormDraft, ARTIST_DRAFT_KEY, OTHER_DRAFT_KEY } from "./formDraft";
 
 const inputClasses =
   "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none";
@@ -22,6 +23,24 @@ function Honeypot() {
 }
 
 const MAX_COLLAB_HANDLES = 5;
+
+// Render's own configured limit (see next.config.ts's serverActions.bodySizeLimit)
+// is 25MB; this stays comfortably under that so a rejection is a clear
+// message here rather than the server dropping the connection partway
+// through a huge upload. Checking client-side first also means the rest of
+// the form's answers survive a too-big photo instead of the whole submit
+// attempt failing.
+const MAX_PHOTO_BYTES = 20 * 1024 * 1024;
+
+function formatMB(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1);
+}
+
+function PhotoSizeError({ message }: { message: string }) {
+  return (
+    <p className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">{message}</p>
+  );
+}
 
 function InstagramAndCollabFields() {
   const [collabCount, setCollabCount] = useState(1);
@@ -85,18 +104,17 @@ function InstagramAndCollabFields() {
   );
 }
 
-function PhotoByEmailNote() {
+function PhotoField() {
   return (
-    <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm text-zinc-700">
-      <p className="font-medium text-ink">Send us a photo separately</p>
-      <p className="mt-1">
-        Please email a photo to{" "}
-        <a href="mailto:info@thisizatl.com" className="font-medium text-brand-dark hover:underline">
-          info@thisizatl.com
-        </a>{" "}
-        after submitting this form, using the same name you enter below so we can match it to your
-        submission.
-      </p>
+    <div>
+      <label className={labelClasses}>Photo</label>
+      <input
+        type="file"
+        name="photo"
+        accept="image/*"
+        required
+        className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-dark"
+      />
     </div>
   );
 }
@@ -121,8 +139,29 @@ function FollowAndEmailFields() {
 }
 
 function ArtistFields() {
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const formRef = useFormDraft(ARTIST_DRAFT_KEY);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const photo = new FormData(e.currentTarget).get("photo");
+    if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) {
+      e.preventDefault();
+      setPhotoError(
+        `That photo is ${formatMB(photo.size)}MB, which is too large -- please choose one under ${formatMB(MAX_PHOTO_BYTES)}MB and try again. Everything else you entered is still here.`
+      );
+      return;
+    }
+    setPhotoError(null);
+  }
+
   return (
-    <form action={submitArtistAction} encType="multipart/form-data" className="mt-8 space-y-5">
+    <form
+      ref={formRef}
+      action={submitArtistAction}
+      onSubmit={handleSubmit}
+      encType="multipart/form-data"
+      className="mt-8 space-y-5"
+    >
       <Honeypot />
 
       <div>
@@ -220,7 +259,8 @@ function ArtistFields() {
         />
       </div>
 
-      <PhotoByEmailNote />
+      <PhotoField />
+      {photoError && <PhotoSizeError message={photoError} />}
 
       <FollowAndEmailFields />
 
@@ -232,8 +272,29 @@ function ArtistFields() {
 }
 
 function OtherFields() {
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const formRef = useFormDraft(OTHER_DRAFT_KEY);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const photo = new FormData(e.currentTarget).get("photo");
+    if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) {
+      e.preventDefault();
+      setPhotoError(
+        `That photo is ${formatMB(photo.size)}MB, which is too large -- please choose one under ${formatMB(MAX_PHOTO_BYTES)}MB and try again. Everything else you entered is still here.`
+      );
+      return;
+    }
+    setPhotoError(null);
+  }
+
   return (
-    <form action={submitOtherAction} encType="multipart/form-data" className="mt-8 space-y-5">
+    <form
+      ref={formRef}
+      action={submitOtherAction}
+      onSubmit={handleSubmit}
+      encType="multipart/form-data"
+      className="mt-8 space-y-5"
+    >
       <Honeypot />
 
       <div>
@@ -329,7 +390,8 @@ function OtherFields() {
         />
       </div>
 
-      <PhotoByEmailNote />
+      <PhotoField />
+      {photoError && <PhotoSizeError message={photoError} />}
 
       <FollowAndEmailFields />
 

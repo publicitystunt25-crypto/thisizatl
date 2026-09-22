@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import ClearDraftOnMount from "../ClearDraftOnMount";
 
 export const metadata: Metadata = {
   title: "Submission Received",
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function SubmitThanksPage() {
   return (
     <div className="flex min-h-screen flex-col">
+      <ClearDraftOnMount />
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-xl flex-1 px-6 py-16 text-center">
@@ -19,14 +21,6 @@ export default function SubmitThanksPage() {
         <p className="mt-4 text-[17px] leading-relaxed text-zinc-700">
           Your submission is in. Our team will review it and, once approved,
           your feature will go live on ThisIzATL.
-        </p>
-        <p className="mt-4 text-[17px] leading-relaxed text-zinc-700">
-          Don&rsquo;t forget to email a photo to{" "}
-          <a href="mailto:info@thisizatl.com" className="font-medium text-brand-dark hover:underline">
-            info@thisizatl.com
-          </a>{" "}
-          if you haven&rsquo;t already &mdash; add your name to the subject line so we can match it to
-          your submission.
         </p>
         <Link
           href="/"

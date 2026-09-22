@@ -10,38 +10,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
-  // Temporary: Render's platform-level WAF is blocking any submission with a
-  // photo over ~34KB, unrelated to anything in this app's own code (confirmed
-  // via a bare-bones test page with zero processing). Send /submit traffic to
-  // the identical form running on Vercel, which doesn't have this problem,
-  // until Render resolves it. Remove this once that's fixed.
-  async redirects() {
-    // Scoped to Render's own hosts only -- without this, the same rule also
-    // matches when this code runs ON thisizatl.vercel.app (it's the same
-    // build deployed there too) and redirects that domain to itself forever.
-    const renderHosts = ["thisizatl.com", "www.thisizatl.com", "thisizatl.onrender.com"];
-
-    // `has` entries within one redirect are ANDed, so matching "any of these
-    // hosts" needs one redirect object per host rather than one `has` list.
-    return renderHosts.flatMap((host) => [
-      {
-        source: "/submit",
-        has: [{ type: "host" as const, value: host }],
-        destination: "https://thisizatl.vercel.app/submissions",
-        permanent: false,
-      },
-      {
-        // The writer form now includes a photo upload, which hits the same
-        // Render WAF issue as /submit -- send writers to the identical form
-        // on Vercel instead. Remove alongside the /submit redirect above
-        // once Render fixes the WAF.
-        source: "/writer/:path*",
-        has: [{ type: "host" as const, value: host }],
-        destination: "https://thisizatl.vercel.app/writer/:path*",
-        permanent: false,
-      },
-    ]);
-  },
   experimental: {
     serverActions: {
       bodySizeLimit: "25mb",

@@ -1,8 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { insertPost, hasRecentSubmissionByArtist } from "@/lib/db";
+import { insertPost, setPostImage, hasRecentSubmissionByArtist } from "@/lib/db";
 import { slugify } from "@/lib/slug";
+import { processImageUpload } from "@/lib/image";
 import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
 import { generateProfileArticle, ProfileSubmission } from "@/lib/profile";
 import { sendSubmissionNotification, sendOtherSubmissionNotification } from "@/lib/email";
@@ -69,6 +70,14 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
 
   const submitterEmail = required(formData, "submitterEmail");
 
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    throw new Error("A photo is required");
+  }
+  if (!photo.type.startsWith("image/")) {
+    throw new Error("Uploaded file is not an image");
+  }
+
   // Guards against someone hitting back/reload and resubmitting a fresh page
   // -- a disabled submit button can't catch that since it's a brand new page
   // load. If this artist already has a submission from the last 10 minutes,
@@ -106,6 +115,10 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
     author: "ThisIzATL Staff",
     submitter_email: submitterEmail,
   });
+
+  const raw = Buffer.from(await photo.arrayBuffer());
+  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName, { width, height }, focus);
 
   try {
     await sendSubmissionNotification(submission, id, collaboratorUrls);
@@ -155,6 +168,14 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
 
   const submitterEmail = required(formData, "submitterEmail");
 
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    throw new Error("A photo is required");
+  }
+  if (!photo.type.startsWith("image/")) {
+    throw new Error("Uploaded file is not an image");
+  }
+
   // Same duplicate-submission guard as the artist path, keyed by name.
   if (await hasRecentSubmissionByArtist(submission.name)) {
     redirect("/submit/thanks");
@@ -188,6 +209,10 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
     author: "ThisIzATL Staff",
     submitter_email: submitterEmail,
   });
+
+  const raw = Buffer.from(await photo.arrayBuffer());
+  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.name, { width, height }, focus);
 
   try {
     await sendOtherSubmissionNotification(submission, id, collaboratorUrls);
