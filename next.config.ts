@@ -21,20 +21,21 @@ const nextConfig: NextConfig = {
     //
     // Raising both of these to 500mb (after 50mb rejected a real upload)
     // didn't let bigger uploads through -- it crashed the entire server with
-    // an out-of-memory kill instead (confirmed via Render's event log,
-    // three times in a row: memoryLimit "512Mi"). This service has 512MB of
-    // RAM total; sharp decodes a JPEG to a raw, uncompressed bitmap while
-    // resizing it, which balloons well past the original file's size, and
-    // several large photos in one request added up past what's physically
-    // available. 50mb is the highest value that's actually been confirmed to
-    // reject cleanly instead of taking the whole site down -- combined with
-    // processing photos one at a time now (see src/app/writer/actions.ts)
-    // rather than all at once, real multi-photo uploads should fit well
-    // under this. Raising it further needs more RAM on the Render plan
-    // first, not a bigger number here.
-    proxyClientMaxBodySize: "50mb",
+    // an out-of-memory kill instead (confirmed via Render's event log, three
+    // times in a row: memoryLimit "512Mi"). This service has 512MB of RAM
+    // total; sharp decodes a JPEG to a raw, uncompressed bitmap while
+    // resizing it, which balloons well past the original file's size.
+    // src/app/writer/actions.ts now processes photos one at a time and
+    // writes each before starting the next (instead of decoding all of them
+    // into memory first), which bounds peak memory to roughly the single
+    // largest photo rather than the sum of all of them -- so this can safely
+    // be higher than the 50mb that was proven safe under the OLD
+    // all-at-once code. 100mb is a deliberately cautious step up from that,
+    // to be verified against a real large multi-photo upload before going
+    // any higher.
+    proxyClientMaxBodySize: "100mb",
     serverActions: {
-      bodySizeLimit: "50mb",
+      bodySizeLimit: "100mb",
       // Next.js rejects a Server Action POST with a 403 if the browser's
       // Origin header doesn't exactly match the host it thinks it's running
       // on (CSRF protection) -- Render serves this app on multiple domains
