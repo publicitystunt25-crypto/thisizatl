@@ -18,12 +18,16 @@ const nextConfig: NextConfig = {
     // truncated at Next's 10MB default, producing "Unexpected end of form"
     // and a generic, unhelpful React error client-side. /submit has no
     // middleware, which is why the same upload worked fine there.
-    proxyClientMaxBodySize: "50mb",
+    //
+    // Both this and bodySizeLimit below were raised to 50mb first, which a
+    // real multi-photo writer upload still exceeded ("Error: Body exceeded
+    // 50mb limit."). Render itself has no payload ceiling (that was the WAF,
+    // now fixed), so there's no infrastructure reason to keep either of
+    // these tight -- set generously high so total photo count/size isn't
+    // the thing writers have to think about.
+    proxyClientMaxBodySize: "500mb",
     serverActions: {
-      // Render has no payload ceiling of its own (that was the WAF, now
-      // fixed) -- this is the only real cap left. Set well above what any
-      // real phone photo needs, with margin for the rest of the form.
-      bodySizeLimit: "50mb",
+      bodySizeLimit: "500mb",
       // Next.js rejects a Server Action POST with a 403 if the browser's
       // Origin header doesn't exactly match the host it thinks it's running
       // on (CSRF protection) -- Render serves this app on multiple domains
