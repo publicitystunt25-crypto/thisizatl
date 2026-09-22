@@ -5,6 +5,7 @@ import { getPostsByAuthor } from "@/lib/db";
 import { createWriterPostAction, writerLogoutAction, deleteWriterPostAction } from "./actions";
 import SaveButton from "./SaveButton";
 import DeleteButton from "./DeleteButton";
+import PhotoPicker from "./PhotoPicker";
 
 export const dynamic = "force-dynamic";
 
@@ -144,25 +145,7 @@ export default async function WriterPage({
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Photo (optional)</label>
-            <input
-              type="file"
-              name="photo"
-              accept="image/*"
-              className="mt-1 w-full text-sm text-zinc-700 file:mr-3 file:rounded-full file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Photo credit (optional)</label>
-            <input
-              type="text"
-              name="photoCredit"
-              placeholder="e.g. Photo by Jane Doe"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-            />
-          </div>
+          <PhotoPicker />
 
           <SaveButton label="Save Article" />
         </form>

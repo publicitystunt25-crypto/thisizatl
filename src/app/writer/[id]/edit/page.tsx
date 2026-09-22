@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireWriter } from "@/lib/auth";
 import { CATEGORIES } from "@/lib/categories";
-import { getPostById } from "@/lib/db";
-import { updateWriterPostAction, deleteWriterPostAction } from "../../actions";
+import { getPostById, getPostImages } from "@/lib/db";
+import { updateWriterPostAction, deleteWriterPostAction, deleteWriterGalleryImageAction } from "../../actions";
 import SaveButton from "../../SaveButton";
 import DeleteButton from "../../DeleteButton";
+import PhotoPicker from "../../PhotoPicker";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,10 @@ export default async function EditWriterPostPage({
   // id belongs to someone else.
   if (!post || post.author !== writer.name) notFound();
 
+  const galleryImages = await getPostImages(post.id);
   const updateWithId = updateWriterPostAction.bind(null, post.id);
   const deleteWithId = deleteWriterPostAction.bind(null, post.id);
+  const deleteGalleryImageWithId = deleteWriterGalleryImageAction.bind(null, post.id);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -91,40 +94,18 @@ export default async function EditWriterPostPage({
             </div>
           </div>
 
-          {post.image_url && (
-            <div>
-              <label className="block text-sm font-medium text-zinc-700">Current photo</label>
-              {/* eslint-disable-next-line @next/next/no-img-element -- this is a stored, already-sized upload, not a page asset to run through next/image */}
-              <img
-                src={post.image_url}
-                alt=""
-                className="mt-1 h-40 w-full rounded-lg object-cover"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">
-              {post.image_url ? "Replace photo (optional)" : "Photo (optional)"}
-            </label>
-            <input
-              type="file"
-              name="photo"
-              accept="image/*"
-              className="mt-1 w-full text-sm text-zinc-700 file:mr-3 file:rounded-full file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Photo credit (optional)</label>
-            <input
-              type="text"
-              name="photoCredit"
-              placeholder="e.g. Photo by Jane Doe"
-              defaultValue={post.image_credit ?? ""}
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-            />
-          </div>
+          <PhotoPicker
+            existingMain={post.image_url ? { url: post.image_url, credit: post.image_credit } : null}
+            existingGallery={galleryImages.map((img) => ({
+              id: img.id,
+              url: `/api/gallery/${img.id}`,
+              credit: img.credit,
+            }))}
+            onDeleteGalleryImage={async (imageId) => {
+              "use server";
+              await deleteGalleryImageWithId(imageId);
+            }}
+          />
 
           <SaveButton label="Save Changes" />
         </form>
