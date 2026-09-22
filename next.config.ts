@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname),
   },
   experimental: {
+    // Separate from serverActions.bodySizeLimit below -- this caps the body
+    // size for any request that passes through middleware (proxy) BEFORE it
+    // ever reaches the Server Action. /admin and /writer are gated by
+    // middleware.ts for the login check, so every request there was silently
+    // truncated at Next's 10MB default, producing "Unexpected end of form"
+    // and a generic, unhelpful React error client-side. /submit has no
+    // middleware, which is why the same upload worked fine there.
+    proxyClientMaxBodySize: "50mb",
     serverActions: {
       // Render has no payload ceiling of its own (that was the WAF, now
       // fixed) -- this is the only real cap left. Set well above what any
