@@ -16,7 +16,13 @@ export async function processImageUpload(
   // a multi-photo upload look "stuck" for many seconds longer than it needed to.
   computeFocus = true
 ): Promise<{ buffer: Buffer; mime: string; width: number; height: number; focus: VisionFocus | null }> {
-  const resized = sharp(buffer)
+  // sharp's default pixel-count safety limit (~268 million pixels, meant to
+  // guard against decompression-bomb-style attacks) is smaller than what a
+  // modern phone's 48MP+ camera or a panorama shot can produce -- a real
+  // submitted photo threw "Input image exceeds pixel limit" here well before
+  // it ever got resized down to a reasonable size. We resize every upload
+  // immediately below, so there's no benefit to keeping that ceiling low.
+  const resized = sharp(buffer, { limitInputPixels: false })
     .rotate()
     .resize({ width: maxWidth, withoutEnlargement: true })
     .jpeg({ quality: 82, mozjpeg: true });
