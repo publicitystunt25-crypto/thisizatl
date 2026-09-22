@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { requireWriter } from "@/lib/auth";
 import { CATEGORIES } from "@/lib/categories";
 import { getPostById } from "@/lib/db";
-import { updateWriterPostAction } from "../../actions";
+import { updateWriterPostAction, deleteWriterPostAction } from "../../actions";
+import SaveButton from "../../SaveButton";
+import DeleteButton from "../../DeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,7 @@ export default async function EditWriterPostPage({
   if (!post || post.author !== writer.name) notFound();
 
   const updateWithId = updateWriterPostAction.bind(null, post.id);
+  const deleteWithId = deleteWriterPostAction.bind(null, post.id);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -123,12 +126,11 @@ export default async function EditWriterPostPage({
             />
           </div>
 
-          <button
-            type="submit"
-            className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
-          >
-            Save Changes
-          </button>
+          <SaveButton label="Save Changes" />
+        </form>
+
+        <form action={deleteWithId} className="mt-4">
+          <DeleteButton />
         </form>
       </main>
     </div>

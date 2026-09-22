@@ -2,17 +2,19 @@ import Link from "next/link";
 import { requireWriter } from "@/lib/auth";
 import { CATEGORIES } from "@/lib/categories";
 import { getPostsByAuthor } from "@/lib/db";
-import { createWriterPostAction, writerLogoutAction } from "./actions";
+import { createWriterPostAction, writerLogoutAction, deleteWriterPostAction } from "./actions";
+import SaveButton from "./SaveButton";
+import DeleteButton from "./DeleteButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function WriterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ posted?: string; updated?: string }>;
+  searchParams: Promise<{ posted?: string; updated?: string; deleted?: string }>;
 }) {
   const writer = await requireWriter();
-  const { posted, updated } = await searchParams;
+  const { posted, updated, deleted } = await searchParams;
   const posts = await getPostsByAuthor(writer.name);
 
   return (
@@ -40,6 +42,11 @@ export default async function WriterPage({
         {updated && (
           <div className="mb-6 rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800">
             Your changes were saved.
+          </div>
+        )}
+        {deleted && (
+          <div className="mb-6 rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800">
+            Article deleted.
           </div>
         )}
 
@@ -71,6 +78,9 @@ export default async function WriterPage({
                     <Link href={`/writer/${post.id}/edit`} className="font-medium text-brand hover:underline">
                       Edit
                     </Link>
+                    <form action={deleteWriterPostAction.bind(null, post.id)}>
+                      <DeleteButton />
+                    </form>
                   </div>
                 </li>
               ))}
@@ -154,12 +164,7 @@ export default async function WriterPage({
             />
           </div>
 
-          <button
-            type="submit"
-            className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
-          >
-            Save Article
-          </button>
+          <SaveButton label="Save Article" />
         </form>
       </main>
     </div>

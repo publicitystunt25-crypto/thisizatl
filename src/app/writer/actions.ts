@@ -9,10 +9,10 @@ import {
   expectedWriterToken,
   requireWriter,
 } from "@/lib/auth";
-import { insertPost, updatePost, getPostById, setPostImage, setSocialShared } from "@/lib/db";
+import { insertPost, updatePost, deletePost, getPostById, setPostImage, setSocialShared } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
-import { shareNewPost } from "@/lib/social";
+import { shareNewPost, deleteFacebookPost } from "@/lib/social";
 import { processImageUpload } from "@/lib/image";
 
 export async function writerLoginAction(formData: FormData): Promise<void> {
@@ -144,4 +144,28 @@ export async function updateWriterPostAction(id: number, formData: FormData): Pr
   revalidatePath("/");
   revalidatePath(`/posts/${existing.slug}`);
   redirect("/writer?updated=1");
+}
+
+export async function deleteWriterPostAction(id: number): Promise<void> {
+  const writer = await requireWriter();
+
+  const existing = await getPostById(id);
+  // Same ownership check as edit/update -- deleting someone else's post (or
+  // a stale/guessed id) is treated the same as "not found".
+  if (!existing || existing.author !== writer.name) {
+    throw new Error("Post not found");
+  }
+
+  if (existing.fb_post_id) {
+    try {
+      await deleteFacebookPost(existing.fb_post_id);
+    } catch (err) {
+      console.error("Facebook post delete failed:", err);
+    }
+  }
+
+  await deletePost(id);
+
+  revalidatePath("/");
+  redirect("/writer?deleted=1");
 }
