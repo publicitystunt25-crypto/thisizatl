@@ -1,95 +1,48 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { requireWriter } from "@/lib/auth";
 import { CATEGORIES } from "@/lib/categories";
-import { getPostsByAuthor } from "@/lib/db";
-import { createWriterPostAction, writerLogoutAction } from "./actions";
+import { getPostById } from "@/lib/db";
+import { updateWriterPostAction } from "../../actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function WriterPage({
-  searchParams,
+export default async function EditWriterPostPage({
+  params,
 }: {
-  searchParams: Promise<{ posted?: string; updated?: string }>;
+  params: Promise<{ id: string }>;
 }) {
   const writer = await requireWriter();
-  const { posted, updated } = await searchParams;
-  const posts = await getPostsByAuthor(writer.name);
+  const { id } = await params;
+  const post = await getPostById(Number(id));
+
+  // Same rule as the update action: a post that isn't yours (or doesn't
+  // exist) is a 404, not a permission error, so it doesn't leak whether the
+  // id belongs to someone else.
+  if (!post || post.author !== writer.name) notFound();
+
+  const updateWithId = updateWriterPostAction.bind(null, post.id);
 
   return (
     <div className="min-h-screen bg-cream">
       <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
-          <div>
-            <p className="font-display text-lg font-bold text-ink">ThisIzATL</p>
-            <p className="text-sm text-zinc-500">Signed in as {writer.name}</p>
-          </div>
-          <form action={writerLogoutAction}>
-            <button type="submit" className="text-sm text-zinc-500 hover:text-zinc-800">
-              Log out
-            </button>
-          </form>
+        <div className="mx-auto max-w-2xl px-6 py-4">
+          <Link href="/writer" className="text-sm text-zinc-500 hover:underline">
+            ← Back to your articles
+          </Link>
+          <h1 className="font-display mt-1 text-xl font-bold text-ink">Edit Article</h1>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-6 py-8">
-        {posted && (
-          <div className="mb-6 rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800">
-            Your article was saved.
-          </div>
-        )}
-        {updated && (
-          <div className="mb-6 rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800">
-            Your changes were saved.
-          </div>
-        )}
-
-        {posts.length > 0 && (
-          <div className="mb-10">
-            <h2 className="font-display text-lg font-bold text-ink">Your Articles</h2>
-            <ul className="mt-3 divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
-              {posts.map((post) => (
-                <li key={post.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink">{post.title}</p>
-                    <p className="mt-0.5 text-xs text-zinc-500">
-                      <span className="capitalize">{post.status}</span>
-                      {" · "}
-                      {new Date(post.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3 text-sm">
-                    {post.status === "published" && (
-                      <a
-                        href={`/posts/${post.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-zinc-500 hover:underline"
-                      >
-                        View
-                      </a>
-                    )}
-                    <Link href={`/writer/${post.id}/edit`} className="font-medium text-brand hover:underline">
-                      Edit
-                    </Link>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <h1 className="font-display text-xl font-bold text-ink">Write a New Article</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Byline will be credited to <span className="font-medium text-ink">{writer.name}</span>.
-        </p>
-
-        <form action={createWriterPostAction} className="mt-6 space-y-5" encType="multipart/form-data">
+        <form action={updateWithId} className="space-y-5" encType="multipart/form-data">
           <div>
             <label className="block text-sm font-medium text-zinc-700">Title</label>
             <input
               type="text"
               name="title"
               required
+              defaultValue={post.title}
               className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
             />
           </div>
@@ -100,6 +53,7 @@ export default async function WriterPage({
               name="body"
               required
               rows={14}
+              defaultValue={post.body}
               className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm leading-relaxed focus:border-brand focus:outline-none"
             />
             <p className="mt-1 text-xs text-zinc-400">Separate paragraphs with a blank line.</p>
@@ -110,7 +64,7 @@ export default async function WriterPage({
               <label className="block text-sm font-medium text-zinc-700">Category</label>
               <select
                 name="category"
-                defaultValue="Music"
+                defaultValue={post.category}
                 className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
               >
                 {CATEGORIES.map((c) => (
@@ -125,7 +79,7 @@ export default async function WriterPage({
               <label className="block text-sm font-medium text-zinc-700">Status</label>
               <select
                 name="status"
-                defaultValue="draft"
+                defaultValue={post.status === "scheduled" ? "draft" : post.status}
                 className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
               >
                 <option value="draft">Save as draft</option>
@@ -134,8 +88,22 @@ export default async function WriterPage({
             </div>
           </div>
 
+          {post.image_url && (
+            <div>
+              <label className="block text-sm font-medium text-zinc-700">Current photo</label>
+              {/* eslint-disable-next-line @next/next/no-img-element -- this is a stored, already-sized upload, not a page asset to run through next/image */}
+              <img
+                src={post.image_url}
+                alt=""
+                className="mt-1 h-40 w-full rounded-lg object-cover"
+              />
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-zinc-700">Photo (optional)</label>
+            <label className="block text-sm font-medium text-zinc-700">
+              {post.image_url ? "Replace photo (optional)" : "Photo (optional)"}
+            </label>
             <input
               type="file"
               name="photo"
@@ -150,6 +118,7 @@ export default async function WriterPage({
               type="text"
               name="photoCredit"
               placeholder="e.g. Photo by Jane Doe"
+              defaultValue={post.image_credit ?? ""}
               className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
             />
           </div>
@@ -158,7 +127,7 @@ export default async function WriterPage({
             type="submit"
             className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
           >
-            Save Article
+            Save Changes
           </button>
         </form>
       </main>

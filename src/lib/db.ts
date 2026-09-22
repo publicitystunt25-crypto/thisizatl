@@ -424,6 +424,16 @@ export async function getAllPostsAdmin(): Promise<Post[]> {
   return res.rows;
 }
 
+export async function getPostsByAuthor(author: string): Promise<Post[]> {
+  await ensureInit();
+  const res = await pool.query<Post>(
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
+     FROM posts WHERE author = $1 ORDER BY created_at DESC`,
+    [author]
+  );
+  return res.rows;
+}
+
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(

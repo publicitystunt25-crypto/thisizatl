@@ -9,7 +9,7 @@ import {
   expectedWriterToken,
   requireWriter,
 } from "@/lib/auth";
-import { insertPost, getPostById, setPostImage, setSocialShared } from "@/lib/db";
+import { insertPost, updatePost, getPostById, setPostImage, setSocialShared } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { CATEGORIES } from "@/lib/categories";
 import { shareNewPost } from "@/lib/social";
@@ -91,4 +91,57 @@ export async function createWriterPostAction(formData: FormData): Promise<void> 
 
   revalidatePath("/");
   redirect("/writer?posted=1");
+}
+
+export async function updateWriterPostAction(id: number, formData: FormData): Promise<void> {
+  const writer = await requireWriter();
+
+  const existing = await getPostById(id);
+  // A writer can only edit their own byline -- someone else's post (or a
+  // stale/guessed id) is treated the same as "not found".
+  if (!existing || existing.author !== writer.name) {
+    throw new Error("Post not found");
+  }
+
+  const title = String(formData.get("title") || "").trim();
+  const body = String(formData.get("body") || "").trim();
+  const category = String(formData.get("category") || "Music");
+  const status = formData.get("status") === "draft" ? "draft" : "published";
+
+  if (!title) throw new Error("Title is required");
+  if (!body) throw new Error("Body is required");
+  if (!(CATEGORIES as readonly string[]).includes(category)) {
+    throw new Error("Invalid category");
+  }
+
+  await updatePost(id, {
+    slug: existing.slug,
+    title,
+    body,
+    category,
+    status,
+  });
+
+  const photo = formData.get("photo");
+  if (photo instanceof File && photo.size > 0) {
+    if (!photo.type.startsWith("image/")) {
+      throw new Error("Uploaded file is not an image");
+    }
+    const credit = String(formData.get("photoCredit") || "").trim() || null;
+    const raw = Buffer.from(await photo.arrayBuffer());
+    const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
+    await setPostImage(id, buffer, mime, `/api/uploads/${id}`, credit, { width, height }, focus);
+  }
+
+  if (existing.status !== "published" && status === "published") {
+    const post = await getPostById(id);
+    if (post) {
+      const result = await shareNewPost({ id: post.id, title: post.title, slug: post.slug, image_url: post.image_url });
+      await setSocialShared(post.id, result.ok, result.fbPostId);
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/posts/${existing.slug}`);
+  redirect("/writer?updated=1");
 }
