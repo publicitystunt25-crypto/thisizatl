@@ -9,6 +9,15 @@ interface ExistingImage {
   credit: string | null;
 }
 
+// Server-enforced ceiling is 50MB for the whole request (see
+// next.config.ts) -- warning a bit under that leaves room for the title,
+// body, and other form fields riding along in the same submission.
+const WARN_AT_BYTES = 45 * 1024 * 1024;
+
+function formatMB(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1);
+}
+
 // Lets a writer attach several photos to one article and pick which single
 // one is the main/featured image -- the rest become the article's gallery.
 // The radio group is native (name="mainChoice"), so the browser submits the
@@ -70,6 +79,7 @@ export default function PhotoPicker({
 
   const visibleGallery = existingGallery.filter((img) => !removedIds.includes(img.id));
   const hasAnyExisting = !!existingMain || visibleGallery.length > 0;
+  const totalNewBytes = newFiles.reduce((sum, f) => sum + f.size, 0);
 
   return (
     <div>
@@ -121,24 +131,36 @@ export default function PhotoPicker({
       </button>
 
       {previews.length > 0 && (
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          {previews.map((src, i) => (
-            <div key={src}>
-              <PhotoOption
-                url={src}
-                radioValue={`new:${i}`}
-                defaultChecked={!hasAnyExisting && i === 0}
-                onDelete={() => removeNewFile(i)}
-              />
-              <input
-                type="text"
-                name={`photo_credit_${i}`}
-                placeholder="Credit (optional)"
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1 text-xs focus:border-brand focus:outline-none"
-              />
-            </div>
-          ))}
-        </div>
+        <>
+          <p className="mt-3 text-xs text-zinc-500">
+            {newFiles.length} photo{newFiles.length === 1 ? "" : "s"} selected, {formatMB(totalNewBytes)}MB total
+          </p>
+          <div className="mt-2 grid grid-cols-3 gap-3">
+            {previews.map((src, i) => (
+              <div key={src}>
+                <PhotoOption
+                  url={src}
+                  caption={`Set as main (${formatMB(newFiles[i].size)}MB)`}
+                  radioValue={`new:${i}`}
+                  defaultChecked={!hasAnyExisting && i === 0}
+                  onDelete={() => removeNewFile(i)}
+                />
+                <input
+                  type="text"
+                  name={`photo_credit_${i}`}
+                  placeholder="Credit (optional)"
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1 text-xs focus:border-brand focus:outline-none"
+                />
+              </div>
+            ))}
+          </div>
+          {totalNewBytes > WARN_AT_BYTES && (
+            <p className="mt-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+              That&rsquo;s {formatMB(totalNewBytes)}MB total -- likely too large to save. Remove a photo or two,
+              or use smaller/fewer photos.
+            </p>
+          )}
+        </>
       )}
       {newFiles.length === 0 && !hasAnyExisting && (
         // Nothing uploaded yet -- no radio group exists, so the server side
