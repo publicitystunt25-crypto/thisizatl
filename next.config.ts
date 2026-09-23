@@ -35,9 +35,12 @@ const nextConfig: NextConfig = {
     // value that has held up under repeated real-world testing. Going
     // higher needs more RAM on the Render plan -- raising this number
     // again without that will very likely crash the server again.
-    proxyClientMaxBodySize: "50mb",
+    // 75mb is a deliberate untested step between the proven-safe 50mb and
+    // the confirmed-crashing 91-100mb -- being verified against a real
+    // ~70mb upload before being trusted.
+    proxyClientMaxBodySize: "75mb",
     serverActions: {
-      bodySizeLimit: "50mb",
+      bodySizeLimit: "75mb",
       // Next.js rejects a Server Action POST with a 403 if the browser's
       // Origin header doesn't exactly match the host it thinks it's running
       // on (CSRF protection) -- Render serves this app on multiple domains
