@@ -19,23 +19,23 @@ const nextConfig: NextConfig = {
     // and a generic, unhelpful React error client-side. /submit has no
     // middleware, which is why the same upload worked fine there.
     //
-    // Raising both of these to 500mb (after 50mb rejected a real upload)
-    // didn't let bigger uploads through -- it crashed the entire server with
-    // an out-of-memory kill instead (confirmed via Render's event log, three
-    // times in a row: memoryLimit "512Mi"). This service has 512MB of RAM
-    // total; sharp decodes a JPEG to a raw, uncompressed bitmap while
-    // resizing it, which balloons well past the original file's size.
-    // src/app/writer/actions.ts now processes photos one at a time and
-    // writes each before starting the next (instead of decoding all of them
-    // into memory first), which bounds peak memory to roughly the single
-    // largest photo rather than the sum of all of them -- so this can safely
-    // be higher than the 50mb that was proven safe under the OLD
-    // all-at-once code. 100mb is a deliberately cautious step up from that,
-    // to be verified against a real large multi-photo upload before going
-    // any higher.
-    proxyClientMaxBodySize: "100mb",
+    // This service has 512MB of RAM total for the whole process. Raising
+    // this value has twice caused an out-of-memory kill of the entire
+    // server (confirmed via Render's event log: memoryLimit "512Mi") rather
+    // than letting a bigger upload through -- once at 500mb, again at
+    // 100mb. Processing photos one at a time (src/app/writer/actions.ts)
+    // and telling sharp to stream instead of buffer (sequentialRead, see
+    // src/lib/image.ts) both help, but the real constraint turned out to be
+    // a single photo's DECODED PIXEL dimensions, not the request's total
+    // byte size: a modern phone's 48-108MP photo mode, or a panorama, can
+    // decode to 300MB+ of raw bitmap data well before any resizing happens,
+    // regardless of how small the compressed file is. 50mb is the last
+    // value proven to reject cleanly instead of crashing. Going higher than
+    // this reliably needs more RAM on the Render plan, not a bigger number
+    // here.
+    proxyClientMaxBodySize: "50mb",
     serverActions: {
-      bodySizeLimit: "100mb",
+      bodySizeLimit: "50mb",
       // Next.js rejects a Server Action POST with a 403 if the browser's
       // Origin header doesn't exactly match the host it thinks it's running
       // on (CSRF protection) -- Render serves this app on multiple domains

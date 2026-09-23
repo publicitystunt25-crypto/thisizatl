@@ -34,7 +34,15 @@ export async function processImageUpload(
   // submitted photo threw "Input image exceeds pixel limit" here well before
   // it ever got resized down to a reasonable size. We resize every upload
   // immediately below, so there's no benefit to keeping that ceiling low.
-  const resized = sharp(buffer, { limitInputPixels: false })
+  // sequentialRead tells libvips to stream through the source top-to-bottom
+  // instead of buffering the whole decoded bitmap for random access -- a
+  // plain resize-then-recompress (all this ever does) never needs random
+  // access, and this measurably cuts peak memory for large photos. Not a
+  // full fix on its own: a single very high-megapixel photo (a modern
+  // phone's 48-108MP mode, or a panorama) can still decode to 300MB+ of raw
+  // pixel data before any resizing happens, on a server with 512MB of RAM
+  // total for the whole process.
+  const resized = sharp(buffer, { limitInputPixels: false, sequentialRead: true })
     .rotate()
     .resize({ width: maxWidth, withoutEnlargement: true })
     .jpeg({ quality: 82, mozjpeg: true });
