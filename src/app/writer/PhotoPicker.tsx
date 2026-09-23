@@ -9,10 +9,10 @@ interface ExistingImage {
   credit: string | null;
 }
 
-// Server-enforced ceiling is 50MB for the whole request (see
+// Server-enforced ceiling is 75MB for the whole request (see
 // next.config.ts) -- warning a bit under that leaves room for the title,
 // body, and other form fields riding along in the same submission.
-const WARN_AT_BYTES = 45 * 1024 * 1024;
+const WARN_AT_BYTES = 70 * 1024 * 1024;
 
 function formatMB(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
