@@ -20,18 +20,24 @@ const nextConfig: NextConfig = {
     // middleware, which is why the same upload worked fine there.
     //
     // This service has 512MB of RAM total for the whole process. Raising
-    // this value previously caused an out-of-memory kill of the entire
-    // server twice (confirmed via Render's event log: memoryLimit "512Mi")
-    // -- but the actual cause turned out to be a single photo's DECODED
-    // PIXEL dimensions, not the request's total byte size (src/lib/image.ts
-    // now caps that at 150 million pixels, with sharp streaming the decode
-    // instead of buffering it). With that root cause fixed and confirmed
-    // working under real use at 50mb, 100mb is a step back up -- verify
-    // against a real large multi-photo upload before going any higher than
-    // this.
-    proxyClientMaxBodySize: "100mb",
+    // this value has caused an out-of-memory kill of the entire server
+    // THREE times now (confirmed via Render's event log: memoryLimit
+    // "512Mi") -- at 500mb, at 100mb, and again at 100mb with six modest
+    // 13.9-megapixel photos (91mb combined, each individually nowhere near
+    // the 150-million-pixel decode cap in src/lib/image.ts). That last one
+    // rules out per-photo decode size as the bottleneck: Next.js reads the
+    // entire multipart request body into memory before any application code
+    // (including the one-at-a-time photo processing in
+    // src/app/writer/actions.ts) ever runs, so a 91mb upload means 91mb is
+    // already resident before processing starts, on top of whatever
+    // processing needs. That's a framework-level behavior, not something
+    // fixable by changing how this app decodes images. 50mb is the only
+    // value that has held up under repeated real-world testing. Going
+    // higher needs more RAM on the Render plan -- raising this number
+    // again without that will very likely crash the server again.
+    proxyClientMaxBodySize: "50mb",
     serverActions: {
-      bodySizeLimit: "100mb",
+      bodySizeLimit: "50mb",
       // Next.js rejects a Server Action POST with a 403 if the browser's
       // Origin header doesn't exactly match the host it thinks it's running
       // on (CSRF protection) -- Render serves this app on multiple domains
