@@ -28,21 +28,21 @@ export async function processImageUpload(
   // a multi-photo upload look "stuck" for many seconds longer than it needed to.
   computeFocus = true
 ): Promise<{ buffer: Buffer; mime: string; width: number; height: number; focus: VisionFocus | null }> {
-  // sharp's default pixel-count safety limit (~268 million pixels, meant to
-  // guard against decompression-bomb-style attacks) is smaller than what a
-  // modern phone's 48MP+ camera or a panorama shot can produce -- a real
-  // submitted photo threw "Input image exceeds pixel limit" here well before
-  // it ever got resized down to a reasonable size. We resize every upload
-  // immediately below, so there's no benefit to keeping that ceiling low.
-  // sequentialRead tells libvips to stream through the source top-to-bottom
-  // instead of buffering the whole decoded bitmap for random access -- a
-  // plain resize-then-recompress (all this ever does) never needs random
-  // access, and this measurably cuts peak memory for large photos. Not a
-  // full fix on its own: a single very high-megapixel photo (a modern
-  // phone's 48-108MP mode, or a panorama) can still decode to 300MB+ of raw
-  // pixel data before any resizing happens, on a server with 512MB of RAM
-  // total for the whole process.
-  const resized = sharp(buffer, { limitInputPixels: false, sequentialRead: true })
+  // sharp's default pixel-count safety limit is ~268 million pixels -- a
+  // real submitted photo exceeded even that, which is what led to disabling
+  // this limit entirely earlier. That was the wrong fix: decoding a photo
+  // anywhere near that size is almost certainly what's been OOM-killing this
+  // 512MB server since (raw RGB at 268 million pixels is ~800MB before any
+  // resizing even happens). 150 million pixels comfortably covers any real
+  // single photo from any phone camera on the market (the highest-end
+  // sensors top out around 200MP, and that's pixel-binned down to a much
+  // smaller output in normal shooting) while still rejecting the
+  // pathological case with a clean, catchable error instead of crashing the
+  // entire process. sequentialRead tells libvips to stream through the
+  // source top-to-bottom instead of buffering the whole decoded bitmap for
+  // random access -- a plain resize-then-recompress (all this ever does)
+  // never needs random access, and this measurably cuts peak memory too.
+  const resized = sharp(buffer, { limitInputPixels: 150_000_000, sequentialRead: true })
     .rotate()
     .resize({ width: maxWidth, withoutEnlargement: true })
     .jpeg({ quality: 82, mozjpeg: true });
