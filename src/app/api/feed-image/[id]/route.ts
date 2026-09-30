@@ -74,10 +74,10 @@ export async function GET(
   // photo/box heights), so a longer headline shrinking further never
   // collides with the divider above or the edge below.
   const CAPTION_TIERS = [
-    { fontSize: 85, lineHeight: 94, maxCharsPerLine: 19, maxLines: 2, logoSize: 200 },
-    { fontSize: 56, lineHeight: 68, maxCharsPerLine: 30, maxLines: 3, logoSize: 170 },
-    { fontSize: 42, lineHeight: 52, maxCharsPerLine: 40, maxLines: 4, logoSize: 140 },
-    { fontSize: 34, lineHeight: 42, maxCharsPerLine: 52, maxLines: 5, logoSize: 120 },
+    { fontSize: 95, lineHeight: 104, maxCharsPerLine: 17, maxLines: 2, logoSize: 150 },
+    { fontSize: 62, lineHeight: 74, maxCharsPerLine: 27, maxLines: 3, logoSize: 130 },
+    { fontSize: 48, lineHeight: 58, maxCharsPerLine: 35, maxLines: 4, logoSize: 110 },
+    { fontSize: 38, lineHeight: 46, maxCharsPerLine: 46, maxLines: 5, logoSize: 95 },
   ];
   const tier =
     CAPTION_TIERS.find((t) => fitsWithinLines(caption, t.maxCharsPerLine, t.maxLines)) ??
@@ -98,9 +98,9 @@ export async function GET(
 
   // Caption text first, logo mark below it -- both centered together within
   // the space below the divider.
-  const captionToLogoGap = 15;
-  const topGap = 30;
-  const bottomMargin = 50;
+  const captionToLogoGap = 10;
+  const topGap = 18;
+  const bottomMargin = 30;
   const captionBlockHeight = captionLines.length * captionLineHeight;
   const groupHeight = captionBlockHeight + captionToLogoGap + logoSize;
   const availableHeight = HEIGHT - bottomMargin - (PHOTO_HEIGHT + 30);
