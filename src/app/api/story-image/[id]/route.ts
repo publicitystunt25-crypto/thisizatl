@@ -45,19 +45,19 @@ export async function GET(
       : null;
   const background = await cropToFocus(imgBuffer, WIDTH, HEIGHT, focus);
 
-  const headlineLines = wrapText(headline, 28, 5);
-  const lineHeight = 64;
+  const headlineLines = wrapText(headline, 21, 5);
+  const lineHeight = 82;
   const gradientHeight = 200 + headlineLines.length * lineHeight;
   const textBlockTop = HEIGHT - gradientHeight + 60;
 
   const headlineSvg = headlineLines
     .map(
       (line, i) =>
-        `<text x="64" y="${textBlockTop + i * lineHeight}" font-family="Arial, sans-serif" font-weight="800" font-size="52" fill="#ffffff">${escapeXml(line)}</text>`
+        `<text x="64" y="${textBlockTop + i * lineHeight}" font-family="Arial, sans-serif" font-weight="800" font-size="70" fill="#ffffff">${escapeXml(line)}</text>`
     )
     .join("");
 
-  const ctaY = textBlockTop + headlineLines.length * lineHeight + 20;
+  const ctaY = textBlockTop + headlineLines.length * lineHeight + 24;
 
   const overlaySvg = `
     <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
@@ -69,7 +69,7 @@ export async function GET(
       </defs>
       <rect x="0" y="${HEIGHT - gradientHeight}" width="${WIDTH}" height="${gradientHeight}" fill="url(#fade)" />
       ${headlineSvg}
-      <text x="64" y="${ctaY}" font-family="Arial, sans-serif" font-weight="700" font-size="34" fill="#ff7a45">Read full story on ThisIzATL.com</text>
+      <text x="64" y="${ctaY}" font-family="Arial, sans-serif" font-weight="700" font-size="44" fill="#ff7a45">Read full story on ThisIzATL.com</text>
     </svg>
   `;
 
