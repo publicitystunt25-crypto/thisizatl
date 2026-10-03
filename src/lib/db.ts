@@ -69,6 +69,14 @@ function ensureInit(): Promise<void> {
         comment_id TEXT PRIMARY KEY,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS nominations (
+        id SERIAL PRIMARY KEY,
+        nominee_name TEXT NOT NULL,
+        nominee_email TEXT,
+        nominee_instagram TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
     `).then(() => undefined);
   }
   return initialized;
@@ -422,6 +430,18 @@ export async function getAllPostsAdmin(): Promise<Post[]> {
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
+}
+
+export async function insertNomination(nomination: {
+  nominee_name: string;
+  nominee_email: string | null;
+  nominee_instagram: string | null;
+}): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `INSERT INTO nominations (nominee_name, nominee_email, nominee_instagram) VALUES ($1, $2, $3)`,
+    [nomination.nominee_name, nomination.nominee_email, nomination.nominee_instagram]
+  );
 }
 
 export async function getPostsByAuthor(author: string): Promise<Post[]> {

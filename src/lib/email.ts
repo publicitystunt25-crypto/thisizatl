@@ -137,3 +137,39 @@ Feel free to share the link with your fans, and follow and tag ThisIzATL on Inst
     console.error("Article-live notification email failed:", res.status, body);
   }
 }
+
+// Sent to the newsroom inbox when a visitor nominates someone to be
+// highlighted via the form at the bottom of /submit.
+export async function sendNominationNotification(nomination: {
+  name: string;
+  email: string | null;
+  instagram: string | null;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.SUBMISSION_NOTIFY_EMAIL;
+  if (!apiKey || !to) return;
+
+  const text = `New nomination: ${nomination.name}
+
+Email: ${nomination.email || "(not provided)"}
+Instagram: ${nomination.instagram || "(not provided)"}`;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to,
+      subject: `New nomination: ${nomination.name}`,
+      text,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Nomination notification email failed:", res.status, body);
+  }
+}
