@@ -4,10 +4,20 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { nominateAction } from "./nominate";
 
+// Values ride along on an error so the form can repopulate: React clears an
+// uncontrolled form after every action, error or not, which would otherwise
+// wipe everything someone typed just because one field was wrong.
+export type NominateValues = {
+  nominatorName: string;
+  nomineeName: string;
+  nomineeEmail: string;
+  nomineeInstagram: string;
+};
+
 export type NominateState =
   | { status: "idle" }
   | { status: "success" }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; values: NominateValues };
 
 const inputClasses =
   "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none";
@@ -52,6 +62,8 @@ function NominateFormInner({ onNominateAgain }: { onNominateAgain: () => void })
     );
   }
 
+  const values = state.status === "error" ? state.values : null;
+
   return (
     <form action={formAction} className="mt-6 space-y-5">
       <input
@@ -65,12 +77,26 @@ function NominateFormInner({ onNominateAgain }: { onNominateAgain: () => void })
 
       <div>
         <label className={labelClasses}>Your name</label>
-        <input type="text" name="nominatorName" required maxLength={80} className={inputClasses} />
+        <input
+          type="text"
+          name="nominatorName"
+          required
+          maxLength={80}
+          defaultValue={values?.nominatorName ?? ""}
+          className={inputClasses}
+        />
       </div>
 
       <div>
         <label className={labelClasses}>Name of who you&rsquo;re nominating</label>
-        <input type="text" name="nomineeName" required maxLength={120} className={inputClasses} />
+        <input
+          type="text"
+          name="nomineeName"
+          required
+          maxLength={120}
+          defaultValue={values?.nomineeName ?? ""}
+          className={inputClasses}
+        />
       </div>
 
       <div>
@@ -81,6 +107,7 @@ function NominateFormInner({ onNominateAgain }: { onNominateAgain: () => void })
           type="email"
           name="nomineeEmail"
           maxLength={200}
+          defaultValue={values?.nomineeEmail ?? ""}
           placeholder="them@email.com"
           className={inputClasses}
         />
@@ -92,6 +119,7 @@ function NominateFormInner({ onNominateAgain }: { onNominateAgain: () => void })
           type="text"
           name="nomineeInstagram"
           maxLength={200}
+          defaultValue={values?.nomineeInstagram ?? ""}
           placeholder="@handle or https://instagram.com/handle"
           className={inputClasses}
         />

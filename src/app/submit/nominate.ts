@@ -7,7 +7,7 @@ import {
 } from "@/lib/db";
 import { sendNominationNotification, sendNomineeInviteEmail } from "@/lib/email";
 import { normalizeInstagramInput } from "@/lib/social";
-import type { NominateState } from "./NominateForm";
+import type { NominateState, NominateValues } from "./NominateForm";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -31,22 +31,34 @@ export async function nominateAction(
     return { status: "success" };
   }
 
-  const nominator = cleanNominatorName(String(formData.get("nominatorName") || ""));
+  const values: NominateValues = {
+    nominatorName: String(formData.get("nominatorName") || ""),
+    nomineeName: String(formData.get("nomineeName") || ""),
+    nomineeEmail: String(formData.get("nomineeEmail") || ""),
+    nomineeInstagram: String(formData.get("nomineeInstagram") || ""),
+  };
+
+  const nominator = cleanNominatorName(values.nominatorName);
   if (!nominator) {
     return {
       status: "error",
       message: "Please enter your name (just your name -- no links or email addresses).",
+      values,
     };
   }
 
   const name = String(formData.get("nomineeName") || "").replace(/\s+/g, " ").trim().slice(0, 120);
   if (!name) {
-    return { status: "error", message: "Please enter the name of who you'd like to nominate." };
+    return { status: "error", message: "Please enter the name of who you'd like to nominate.", values };
   }
 
   const email = String(formData.get("nomineeEmail") || "").trim().slice(0, 200) || null;
   if (email && !EMAIL_PATTERN.test(email)) {
-    return { status: "error", message: "That email address doesn't look right -- fix it or leave it blank." };
+    return {
+      status: "error",
+      message: "That email address doesn't look right -- fix it or leave it blank.",
+      values,
+    };
   }
 
   const rawInstagram = String(formData.get("nomineeInstagram") || "").trim().slice(0, 200);
