@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import SubmitForm from "./SubmitForm";
-import NominateForm from "./NominateForm";
 
 export const metadata: Metadata = {
   title: "Submit Your Music",
@@ -26,18 +25,6 @@ export default function SubmitPage() {
         </p>
 
         <SubmitForm />
-
-        <section className="mt-14 border-t border-zinc-200 pt-10">
-          <h2 className="font-display text-2xl font-bold text-ink">
-            Know Someone We Should Highlight?
-          </h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-zinc-600">
-            Nominate an artist, creator, or local figure doing great things in
-            Atlanta. Just tell us who they are &mdash; add their email or
-            Instagram if you have it so we can reach them.
-          </p>
-          <NominateForm />
-        </section>
       </main>
 
       <SiteFooter />
