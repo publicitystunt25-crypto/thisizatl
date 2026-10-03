@@ -1,11 +1,25 @@
 "use server";
 
-import { insertNomination } from "@/lib/db";
-import { sendNominationNotification } from "@/lib/email";
+import {
+  insertNomination,
+  markNominationEmailSent,
+  canSendNomineeInvite,
+} from "@/lib/db";
+import { sendNominationNotification, sendNomineeInviteEmail } from "@/lib/email";
 import { normalizeInstagramInput } from "@/lib/social";
 import type { NominateState } from "./NominateForm";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// The nominator's name is dropped into an email that goes to a stranger
+// from the newsroom's own address, so keep it to a plain name: collapse
+// whitespace/newlines, cap the length, and refuse anything link-like.
+function cleanNominatorName(raw: string): string | null {
+  const name = raw.replace(/\s+/g, " ").trim().slice(0, 80);
+  if (!name) return null;
+  if (/https?:|www\.|[<>@]|\.(com|net|org|co|io|me|ly)\b/i.test(name)) return null;
+  return name;
+}
 
 export async function nominateAction(
   _prev: NominateState,
@@ -17,7 +31,15 @@ export async function nominateAction(
     return { status: "success" };
   }
 
-  const name = String(formData.get("nomineeName") || "").trim().slice(0, 120);
+  const nominator = cleanNominatorName(String(formData.get("nominatorName") || ""));
+  if (!nominator) {
+    return {
+      status: "error",
+      message: "Please enter your name (just your name -- no links or email addresses).",
+    };
+  }
+
+  const name = String(formData.get("nomineeName") || "").replace(/\s+/g, " ").trim().slice(0, 120);
   if (!name) {
     return { status: "error", message: "Please enter the name of who you'd like to nominate." };
   }
@@ -32,10 +54,27 @@ export async function nominateAction(
   // team still sees what the person meant.
   const instagram = rawInstagram ? normalizeInstagramInput(rawInstagram) ?? rawInstagram : null;
 
-  await insertNomination({ nominee_name: name, nominee_email: email, nominee_instagram: instagram });
+  const nominationId = await insertNomination({
+    nominator_name: nominator,
+    nominee_name: name,
+    nominee_email: email,
+    nominee_instagram: instagram,
+  });
+
+  let inviteSent = false;
+  if (email) {
+    try {
+      if (await canSendNomineeInvite(email)) {
+        inviteSent = await sendNomineeInviteEmail({ email, name, nominator });
+        if (inviteSent) await markNominationEmailSent(nominationId);
+      }
+    } catch (err) {
+      console.error("Nominee invite failed:", err);
+    }
+  }
 
   try {
-    await sendNominationNotification({ name, email, instagram });
+    await sendNominationNotification({ name, nominator, email, instagram, inviteSent });
   } catch (err) {
     console.error("Nomination notification email failed:", err);
   }

@@ -142,17 +142,28 @@ Feel free to share the link with your fans, and follow and tag ThisIzATL on Inst
 // highlighted via the form at the bottom of /submit.
 export async function sendNominationNotification(nomination: {
   name: string;
+  nominator: string;
   email: string | null;
   instagram: string | null;
+  inviteSent: boolean;
 }): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.SUBMISSION_NOTIFY_EMAIL;
   if (!apiKey || !to) return;
 
+  const inviteLine = nomination.inviteSent
+    ? "Invitation email sent to the nominee."
+    : nomination.email
+      ? "Invitation email NOT sent (this address was already invited recently, or the hourly limit was hit)."
+      : "No invitation sent (no email provided for the nominee).";
+
   const text = `New nomination: ${nomination.name}
 
+Nominated by: ${nomination.nominator}
 Email: ${nomination.email || "(not provided)"}
-Instagram: ${nomination.instagram || "(not provided)"}`;
+Instagram: ${nomination.instagram || "(not provided)"}
+
+${inviteLine}`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -172,4 +183,54 @@ Instagram: ${nomination.instagram || "(not provided)"}`;
     const body = await res.text();
     console.error("Nomination notification email failed:", res.status, body);
   }
+}
+
+// Sent to the person who was nominated, inviting them to fill out the
+// submission form. The body is a fixed template -- the only visitor-supplied
+// text in it is the nominator's name (validated in nominateAction to be a
+// plain name with no links) and the nominee's own name, because this goes to
+// an address a stranger typed into a public form.
+export async function sendNomineeInviteEmail(nominee: {
+  email: string;
+  name: string;
+  nominator: string;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return false;
+
+  const submitUrl = `${process.env.SITE_URL || "https://thisizatl.com"}/submit`;
+
+  const text = `Hi ${nominee.name},
+
+${nominee.nominator} nominated you to be covered on ThisIzATL, Atlanta's source for music, entertainment, and culture news.
+
+If you'd like to be featured, fill out our short submission form here:
+${submitUrl}
+
+Tell us your story and add a photo -- our team reviews every submission before it goes live.
+
+If you weren't expecting this, you can ignore this email.
+
+-- ThisIzATL`;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: nominee.email,
+      subject: "You've been nominated to be featured on ThisIzATL",
+      text,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Nominee invite email failed:", res.status, body);
+    return false;
+  }
+  return true;
 }

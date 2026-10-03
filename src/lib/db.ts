@@ -77,6 +77,8 @@ function ensureInit(): Promise<void> {
         nominee_instagram TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      ALTER TABLE nominations ADD COLUMN IF NOT EXISTS nominator_name TEXT;
+      ALTER TABLE nominations ADD COLUMN IF NOT EXISTS nominee_email_sent_at TIMESTAMPTZ;
     `).then(() => undefined);
   }
   return initialized;
@@ -433,15 +435,40 @@ export async function getAllPostsAdmin(): Promise<Post[]> {
 }
 
 export async function insertNomination(nomination: {
+  nominator_name: string;
   nominee_name: string;
   nominee_email: string | null;
   nominee_instagram: string | null;
-}): Promise<void> {
+}): Promise<number> {
   await ensureInit();
-  await pool.query(
-    `INSERT INTO nominations (nominee_name, nominee_email, nominee_instagram) VALUES ($1, $2, $3)`,
-    [nomination.nominee_name, nomination.nominee_email, nomination.nominee_instagram]
+  const res = await pool.query<{ id: number }>(
+    `INSERT INTO nominations (nominator_name, nominee_name, nominee_email, nominee_instagram)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [nomination.nominator_name, nomination.nominee_name, nomination.nominee_email, nomination.nominee_instagram]
   );
+  return res.rows[0].id;
+}
+
+export async function markNominationEmailSent(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE nominations SET nominee_email_sent_at = now() WHERE id = $1`, [id]);
+}
+
+// Guards the invitation email, which goes to an address a stranger typed
+// into a public form: never invite the same address twice within 30 days,
+// and cap total invitations per hour so the form can't be used to blast mail
+// out under the newsroom's address.
+export async function canSendNomineeInvite(email: string): Promise<boolean> {
+  await ensureInit();
+  const res = await pool.query<{ same_address: string; last_hour: string }>(
+    `SELECT
+       count(*) FILTER (WHERE lower(nominee_email) = lower($1) AND nominee_email_sent_at > now() - interval '30 days') AS same_address,
+       count(*) FILTER (WHERE nominee_email_sent_at > now() - interval '1 hour') AS last_hour
+     FROM nominations`,
+    [email]
+  );
+  const { same_address, last_hour } = res.rows[0];
+  return Number(same_address) === 0 && Number(last_hour) < 20;
 }
 
 export async function getPostsByAuthor(author: string): Promise<Post[]> {

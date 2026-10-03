@@ -64,12 +64,19 @@ function NominateFormInner({ onNominateAgain }: { onNominateAgain: () => void })
       />
 
       <div>
+        <label className={labelClasses}>Your name</label>
+        <input type="text" name="nominatorName" required maxLength={80} className={inputClasses} />
+      </div>
+
+      <div>
         <label className={labelClasses}>Name of who you&rsquo;re nominating</label>
         <input type="text" name="nomineeName" required maxLength={120} className={inputClasses} />
       </div>
 
       <div>
-        <label className={labelClasses}>Their email (optional)</label>
+        <label className={labelClasses}>
+          Their email (optional &mdash; we&rsquo;ll email them an invitation to be featured)
+        </label>
         <input
           type="email"
           name="nomineeEmail"
