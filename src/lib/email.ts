@@ -202,7 +202,7 @@ export async function sendNomineeInviteEmail(nominee: {
 
   const text = `Hi ${nominee.name},
 
-${nominee.nominator} nominated you to be covered on ThisIzATL, Atlanta's source for music, entertainment, and culture news.
+${nominee.nominator} nominated you to be highlighted in ThisIzATL, Atlanta's source for music, entertainment, and culture news.
 
 If you'd like to be featured, fill out our short submission form here:
 ${submitUrl}
