@@ -209,8 +209,6 @@ ${submitUrl}
 
 Tell us your story and add a photo -- our team reviews every submission before it goes live.
 
-If you weren't expecting this, you can ignore this email.
-
 -- ThisIzATL`;
 
   const res = await fetch("https://api.resend.com/emails", {
