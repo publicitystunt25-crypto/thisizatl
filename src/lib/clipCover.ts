@@ -38,15 +38,59 @@ async function getFrame(publicId: string): Promise<Buffer | null> {
   return buf;
 }
 
+// The logo is twice the size it was on the feed-style layout; the headline
+// is a step larger, which is why fewer characters fit on a line.
 const CAPTION_TIERS = [
-  { fontSize: 115, lineHeight: 126, maxCharsPerLine: 14, maxLines: 2, logoSize: 150 },
-  { fontSize: 75, lineHeight: 90, maxCharsPerLine: 22, maxLines: 3, logoSize: 130 },
-  { fontSize: 60, lineHeight: 73, maxCharsPerLine: 28, maxLines: 4, logoSize: 110 },
-  { fontSize: 50, lineHeight: 61, maxCharsPerLine: 35, maxLines: 5, logoSize: 95 },
+  { fontSize: 128, lineHeight: 140, maxCharsPerLine: 13, maxLines: 2, logoSize: 300 },
+  { fontSize: 84, lineHeight: 100, maxCharsPerLine: 20, maxLines: 3, logoSize: 270 },
+  { fontSize: 68, lineHeight: 82, maxCharsPerLine: 25, maxLines: 4, logoSize: 230 },
+  { fontSize: 56, lineHeight: 68, maxCharsPerLine: 31, maxLines: 5, logoSize: 200 },
 ];
 
-export async function renderClipCover(publicId: string, headline: string): Promise<Buffer | null> {
-  const frame = await getFrame(publicId);
+export type FrameStyle = "none" | "solid" | "dashed" | "double" | "polaroid";
+
+// Decorative border drawn over the whole cover, in the brand orange.
+function frameSvg(style: FrameStyle): string | null {
+  const o = BRAND_ORANGE;
+  const open = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">`;
+  switch (style) {
+    case "solid":
+      return `${open}
+        <rect x="28" y="28" width="${WIDTH - 56}" height="${HEIGHT - 56}" rx="30" fill="none" stroke="${o}" stroke-width="12" />
+        <rect x="56" y="56" width="${WIDTH - 112}" height="${HEIGHT - 112}" rx="16" fill="none" stroke="${o}" stroke-width="3" stroke-opacity="0.75" />
+      </svg>`;
+    case "dashed":
+      return `${open}
+        <rect x="36" y="36" width="${WIDTH - 72}" height="${HEIGHT - 72}" rx="22" fill="none" stroke="${o}" stroke-width="7" stroke-dasharray="30 18" />
+      </svg>`;
+    case "double":
+      return `${open}
+        <rect x="26" y="26" width="${WIDTH - 52}" height="${HEIGHT - 52}" fill="none" stroke="${o}" stroke-width="9" />
+        <rect x="54" y="54" width="${WIDTH - 108}" height="${HEIGHT - 108}" fill="none" stroke="${o}" stroke-width="3" />
+        <rect x="14" y="14" width="40" height="40" fill="${o}" />
+        <rect x="${WIDTH - 54}" y="14" width="40" height="40" fill="${o}" />
+        <rect x="14" y="${HEIGHT - 54}" width="40" height="40" fill="${o}" />
+        <rect x="${WIDTH - 54}" y="${HEIGHT - 54}" width="40" height="40" fill="${o}" />
+      </svg>`;
+    case "polaroid":
+      return `${open}
+        <path fill="#f5efe6" fill-rule="evenodd" d="M0 0H${WIDTH}V${HEIGHT}H0Z M40 40V${HEIGHT - 40}H${WIDTH - 40}V40Z" />
+        <rect x="40" y="40" width="${WIDTH - 80}" height="${HEIGHT - 80}" fill="none" stroke="${o}" stroke-width="6" />
+      </svg>`;
+    default:
+      return null;
+  }
+}
+
+// The style the live covers use.
+const COVER_FRAME: FrameStyle = "solid";
+
+export async function renderClipCover(
+  publicId: string,
+  headline: string,
+  opts: { style?: FrameStyle; frame?: Buffer } = {}
+): Promise<Buffer | null> {
+  const frame = opts.frame ?? (await getFrame(publicId));
   if (!frame) return null;
 
   const [logoBuffer, wordmarkBuffer] = await Promise.all([
@@ -82,6 +126,7 @@ export async function renderClipCover(publicId: string, headline: string): Promi
 
   const logo = await sharp(logoBuffer).resize(tier.logoSize, tier.logoSize).toBuffer();
   const wordmarkWidth = 240;
+  const frameLayer = frameSvg(opts.style ?? COVER_FRAME);
   const wordmark = await sharp(wordmarkBuffer).resize({ width: wordmarkWidth }).toBuffer();
 
   const captionToLogoGap = 8;
@@ -115,7 +160,8 @@ export async function renderClipCover(publicId: string, headline: string): Promi
     .composite([
       { input: Buffer.from(overlay), top: 0, left: 0 },
       { input: logo, top: Math.round(logoTop), left: Math.round(WIDTH / 2 - tier.logoSize / 2) },
-      { input: wordmark, top: 270, left: WIDTH - 40 - wordmarkWidth },
+      { input: wordmark, top: 280, left: WIDTH - 90 - wordmarkWidth },
+      ...(frameLayer ? [{ input: Buffer.from(frameLayer), top: 0, left: 0 }] : []),
     ])
     .jpeg({ quality: 90 })
     .toBuffer();
