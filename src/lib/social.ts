@@ -1,5 +1,5 @@
 const GRAPH_VERSION = "v26.0";
-const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
+export const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const SITE_URL = process.env.SITE_URL || "https://thisizatl.com";
 
 export interface SocialPost {

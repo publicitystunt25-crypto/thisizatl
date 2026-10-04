@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  // thisizatl.com/blog is a shortcut straight to the video-submissions admin
+  // page (asked for by the site owner). Anyone not logged in as admin lands
+  // on the admin login first, via the middleware on /admin/*.
+  async redirects() {
+    return [{ source: "/blog", destination: "/admin/clips", permanent: false }];
+  },
   experimental: {
     // Separate from serverActions.bodySizeLimit below -- this caps the body
     // size for any request that passes through middleware (proxy) BEFORE it

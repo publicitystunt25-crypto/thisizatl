@@ -93,6 +93,12 @@ function ensureInit(): Promise<void> {
         status TEXT NOT NULL DEFAULT 'pending',
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS headline TEXT;
+      ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS ig_caption TEXT;
+      ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS ig_media_id TEXT;
+      ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS error TEXT;
+      ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS posting_started_at TIMESTAMPTZ;
+      ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS posted_at TIMESTAMPTZ;
     `).then(() => undefined);
   }
   return initialized;
@@ -494,6 +500,92 @@ export async function insertVideoSubmission(submission: {
     ]
   );
   return res.rows[0]?.id ?? null;
+}
+
+export interface VideoSubmission {
+  id: number;
+  submitter_name: string;
+  submitter_email: string | null;
+  submitter_instagram: string | null;
+  caption: string;
+  video_public_id: string;
+  video_url: string;
+  duration_seconds: number | null;
+  bytes: string | null;
+  status: "pending" | "posting" | "posted" | "declined" | "failed";
+  headline: string | null;
+  ig_caption: string | null;
+  ig_media_id: string | null;
+  error: string | null;
+  posting_started_at: string | null;
+  posted_at: string | null;
+  created_at: string;
+}
+
+export async function listVideoSubmissions(): Promise<VideoSubmission[]> {
+  await ensureInit();
+  const res = await pool.query<VideoSubmission>(
+    `SELECT * FROM video_submissions ORDER BY created_at DESC LIMIT 200`
+  );
+  return res.rows;
+}
+
+export async function getVideoSubmission(id: number): Promise<VideoSubmission | undefined> {
+  await ensureInit();
+  const res = await pool.query<VideoSubmission>(`SELECT * FROM video_submissions WHERE id = $1`, [id]);
+  return res.rows[0];
+}
+
+export async function countPendingVideoSubmissions(): Promise<number> {
+  await ensureInit();
+  const res = await pool.query<{ n: string }>(
+    `SELECT count(*) AS n FROM video_submissions WHERE status IN ('pending', 'failed')`
+  );
+  return Number(res.rows[0].n);
+}
+
+// Atomically takes the clip for posting. Instagram posts can't be undone or
+// deleted through the API, so a double-click (or two admins) must never be
+// able to start two posts of the same clip: only one caller gets the row
+// back. A clip stuck in "posting" for 15+ minutes (the server restarted
+// mid-post) can be claimed again.
+export async function claimVideoSubmissionForPosting(
+  id: number,
+  headline: string,
+  igCaption: string
+): Promise<VideoSubmission | null> {
+  await ensureInit();
+  const res = await pool.query<VideoSubmission>(
+    `UPDATE video_submissions
+     SET status = 'posting', headline = $2, ig_caption = $3, error = NULL, posting_started_at = now()
+     WHERE id = $1
+       AND (status IN ('pending', 'failed')
+            OR (status = 'posting' AND posting_started_at < now() - interval '15 minutes'))
+     RETURNING *`,
+    [id, headline, igCaption]
+  );
+  return res.rows[0] ?? null;
+}
+
+export async function markVideoSubmissionPosted(id: number, igMediaId: string): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `UPDATE video_submissions SET status = 'posted', ig_media_id = $2, posted_at = now(), error = NULL WHERE id = $1`,
+    [id, igMediaId]
+  );
+}
+
+export async function markVideoSubmissionFailed(id: number, error: string): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE video_submissions SET status = 'failed', error = $2 WHERE id = $1`, [
+    id,
+    error.slice(0, 1000),
+  ]);
+}
+
+export async function markVideoSubmissionDeclined(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE video_submissions SET status = 'declined' WHERE id = $1 AND status IN ('pending', 'failed')`, [id]);
 }
 
 export async function markNominationEmailSent(id: number): Promise<void> {
