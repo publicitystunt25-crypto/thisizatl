@@ -78,12 +78,14 @@ function encodeOverlayText(text: string): string {
   return encodeURIComponent(text).replace(/%2C/g, "%252C").replace(/%2F/g, "%252F");
 }
 
-// 1080x1920 (Reels size). Landscape clips get a color-matched band above and
-// below (Cloudinary can't blur a video background); vertical clips fill the
-// frame. The headline sits well above the bottom edge so Instagram's own
+// 1080x1920 (Reels size). Landscape clips get near-black bands above and
+// below, like the black bar on the feed images; vertical clips fill the
+// frame. (Cloudinary accepts fancier backgrounds like b_auto or b_blurred for
+// still images but rejects them for video, so it has to be a plain color.)
+// The headline sits well above the bottom edge so Instagram's own
 // caption/buttons don't cover it.
 export function overlayTransformation(headline: string): string {
-  const parts = ["c_pad,w_1080,h_1920,b_auto:predominant"];
+  const parts = ["c_pad,w_1080,h_1920,b_rgb:0a0a0a"];
   const text = headline.replace(/\s+/g, " ").trim().slice(0, 140);
   if (text) {
     parts.push(
@@ -121,6 +123,7 @@ export async function renderOverlayVideo(
   headline: string,
   waitMs: number
 ): Promise<boolean> {
+  const startedAt = Date.now();
   const eager = `${overlayTransformation(headline)}/${OUTPUT_FORMAT}`;
   const timestamp = String(Math.floor(Date.now() / 1000));
   const params = { eager, public_id: publicId, timestamp, type: "upload" };
@@ -140,11 +143,29 @@ export async function renderOverlayVideo(
       const data = await res.json().catch(() => null);
       throw new Error(data?.error?.message || `Cloudinary overlay render failed (${res.status})`);
     }
-    return true;
   } catch (err) {
     if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) return false;
     throw err;
   }
+
+  // A 200 from the render call doesn't prove the video exists: a transformation
+  // Cloudinary can't actually build still comes back OK here, and the failure
+  // only shows up when something fetches the video (Instagram, as an opaque
+  // "media upload failed"). Fetch it ourselves and surface Cloudinary's real
+  // reason.
+  const url = overlayVideoUrl(config, publicId, headline);
+  do {
+    const head = await fetch(url, { method: "HEAD" });
+    const type = head.headers.get("content-type") ?? "";
+    if (head.ok && type.startsWith("video/")) return true;
+    if (head.status === 400 || head.status === 401 || head.status === 403) {
+      throw new Error(
+        `Cloudinary couldn't build the overlay video: ${head.headers.get("x-cld-error") || head.status}`
+      );
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  } while (Date.now() - startedAt < waitMs);
+  return false;
 }
 
 // Removes the original and every rendered version once a clip is finished

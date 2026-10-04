@@ -121,6 +121,14 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
             poster={preview?.posterUrl}
             controls
             playsInline
+            onError={() =>
+              setMessage({
+                kind: "error",
+                text: preview
+                  ? "The overlay video didn't load. Press Preview again."
+                  : "The original video didn't load.",
+              })
+            }
             className="mt-1 max-h-[480px] w-full rounded-lg bg-black"
           />
           {preview && (
