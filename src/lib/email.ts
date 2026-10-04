@@ -232,3 +232,47 @@ Tell us your story and add a photo -- our team reviews every submission before i
   }
   return true;
 }
+
+// Sent to the newsroom inbox when someone uploads a video clip through /clip.
+export async function sendClipSubmissionNotification(clip: {
+  name: string;
+  email: string | null;
+  instagram: string | null;
+  caption: string;
+  videoUrl: string;
+  durationSeconds: number | null;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.SUBMISSION_NOTIFY_EMAIL;
+  if (!apiKey || !to) return;
+
+  const text = `New video clip submission from ${clip.name}
+
+Instagram: ${clip.instagram || "(not provided)"}
+Email: ${clip.email || "(not provided)"}
+Length: ${clip.durationSeconds != null ? `${Math.round(clip.durationSeconds)} seconds` : "(unknown)"}
+
+Caption they submitted:
+${clip.caption}
+
+Watch the clip: ${clip.videoUrl}`;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to,
+      subject: `New clip submission: ${clip.name}`,
+      text,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Clip submission notification email failed:", res.status, body);
+  }
+}

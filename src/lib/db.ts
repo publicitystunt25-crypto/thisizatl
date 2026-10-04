@@ -79,6 +79,20 @@ function ensureInit(): Promise<void> {
       );
       ALTER TABLE nominations ADD COLUMN IF NOT EXISTS nominator_name TEXT;
       ALTER TABLE nominations ADD COLUMN IF NOT EXISTS nominee_email_sent_at TIMESTAMPTZ;
+
+      CREATE TABLE IF NOT EXISTS video_submissions (
+        id SERIAL PRIMARY KEY,
+        submitter_name TEXT NOT NULL,
+        submitter_email TEXT,
+        submitter_instagram TEXT,
+        caption TEXT NOT NULL,
+        video_public_id TEXT UNIQUE NOT NULL,
+        video_url TEXT NOT NULL,
+        duration_seconds REAL,
+        bytes BIGINT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
     `).then(() => undefined);
   }
   return initialized;
@@ -447,6 +461,39 @@ export async function insertNomination(nomination: {
     [nomination.nominator_name, nomination.nominee_name, nomination.nominee_email, nomination.nominee_instagram]
   );
   return res.rows[0].id;
+}
+
+// Returns the new row's id, or null if this exact upload was already saved
+// (a double-click or retry shouldn't create a second submission).
+export async function insertVideoSubmission(submission: {
+  submitter_name: string;
+  submitter_email: string | null;
+  submitter_instagram: string | null;
+  caption: string;
+  video_public_id: string;
+  video_url: string;
+  duration_seconds: number | null;
+  bytes: number;
+}): Promise<number | null> {
+  await ensureInit();
+  const res = await pool.query<{ id: number }>(
+    `INSERT INTO video_submissions
+       (submitter_name, submitter_email, submitter_instagram, caption, video_public_id, video_url, duration_seconds, bytes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (video_public_id) DO NOTHING
+     RETURNING id`,
+    [
+      submission.submitter_name,
+      submission.submitter_email,
+      submission.submitter_instagram,
+      submission.caption,
+      submission.video_public_id,
+      submission.video_url,
+      submission.duration_seconds,
+      submission.bytes,
+    ]
+  );
+  return res.rows[0]?.id ?? null;
 }
 
 export async function markNominationEmailSent(id: number): Promise<void> {
