@@ -7,6 +7,7 @@ async function createReelContainer(
   token: string,
   videoUrl: string,
   caption: string,
+  coverUrl?: string,
   collaborators?: string[]
 ): Promise<{ id: string } | { error: string }> {
   const body: Record<string, unknown> = {
@@ -16,6 +17,7 @@ async function createReelContainer(
     share_to_feed: true,
     access_token: token,
   };
+  if (coverUrl) body.cover_url = coverUrl;
   if (collaborators && collaborators.length > 0) body.collaborators = collaborators;
 
   const res = await fetch(`${GRAPH_BASE}/${igUserId}/media`, {
@@ -55,6 +57,7 @@ async function waitForReelReady(creationId: string, token: string, maxWaitMs: nu
 // ineligible account) the Reel still goes out without it rather than failing.
 export async function postReel(params: {
   videoUrl: string;
+  coverUrl?: string;
   caption: string;
   collaborators: string[];
 }): Promise<string> {
@@ -62,13 +65,13 @@ export async function postReel(params: {
   const token = process.env.FB_PAGE_ACCESS_TOKEN;
   if (!igUserId || !token) throw new Error("Instagram isn't configured on the server.");
 
-  let result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.collaborators);
+  let result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl, params.collaborators);
   if ("error" in result && params.collaborators.length > 0) {
     console.error(
       `Reel collaborator invite failed for [${params.collaborators.join(", ")}], retrying without:`,
       result.error
     );
-    result = await createReelContainer(igUserId, token, params.videoUrl, params.caption);
+    result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl);
   }
   if ("error" in result) throw new Error(`Instagram rejected the Reel: ${result.error}`);
 

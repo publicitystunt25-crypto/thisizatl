@@ -1,14 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/auth";
-import {
-  cloudinaryConfig,
-  deleteClipAssets,
-  overlayPosterUrl,
-  clipIsLandscape,
-  overlayVideoUrl,
-  renderOverlayVideo,
-} from "@/lib/cloudinary";
+import { cloudinaryConfig, deleteClipAssets } from "@/lib/cloudinary";
 import {
   claimVideoSubmissionForPosting,
   getVideoSubmission,
@@ -30,39 +23,6 @@ function toHandle(raw: string): string | null {
   return url ? extractInstagramHandle(url) : null;
 }
 
-export type PreviewResult =
-  | { ok: true; videoUrl: string; posterUrl: string }
-  | { ok: false; error: string };
-
-// Renders the overlay and returns the finished video so it can be reviewed
-// before anything is posted. This runs inside a web request (and Cloudflare
-// gives up on those after ~100s), so it stops waiting at 80s; Cloudinary
-// keeps rendering, and pressing the button again a minute later is instant.
-export async function previewClipOverlayAction(id: number, headline: string): Promise<PreviewResult> {
-  await requireAdmin();
-  const config = cloudinaryConfig();
-  if (!config) return { ok: false, error: "Cloudinary isn't configured." };
-
-  const submission = await getVideoSubmission(id);
-  if (!submission) return { ok: false, error: "Submission not found." };
-
-  const text = cleanHeadline(headline);
-  const landscape = await clipIsLandscape(config, submission.video_public_id).catch(() => false);
-  try {
-    const finished = await renderOverlayVideo(config, submission.video_public_id, text, 80_000, landscape);
-    if (!finished) {
-      return { ok: false, error: "Still rendering -- give it a minute and press Preview again." };
-    }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Couldn't render the overlay." };
-  }
-  return {
-    ok: true,
-    videoUrl: overlayVideoUrl(config, submission.video_public_id, text, landscape),
-    posterUrl: overlayPosterUrl(config, submission.video_public_id, text, landscape),
-  };
-}
-
 export type ApproveResult = { ok: true } | { ok: false; error: string };
 
 // Starts posting and returns immediately: rendering plus Instagram's video
@@ -81,7 +41,7 @@ export async function approveClipAction(
 
   const headline = cleanHeadline(headlineRaw);
   const caption = captionRaw.trim().slice(0, 2200);
-  if (!headline) return { ok: false, error: "Add a headline for the overlay first." };
+  if (!headline) return { ok: false, error: "Add a headline for the cover image first." };
   if (!caption) return { ok: false, error: "Add an Instagram caption first." };
 
   const collaborators: string[] = [];
@@ -94,14 +54,14 @@ export async function approveClipAction(
   const claimed = await claimVideoSubmissionForPosting(id, headline, caption);
   if (!claimed) return { ok: false, error: "This clip is already posting, posted, or declined." };
 
-  void runClipPost(claimed.id, claimed.video_public_id, headline, caption, collaborators);
+  void runClipPost(claimed.id, claimed.video_public_id, claimed.video_url, caption, collaborators);
   return { ok: true };
 }
 
 async function runClipPost(
   id: number,
   publicId: string,
-  headline: string,
+  videoUrl: string,
   caption: string,
   collaborators: string[]
 ): Promise<void> {
@@ -109,12 +69,12 @@ async function runClipPost(
   try {
     if (!config) throw new Error("Cloudinary isn't configured.");
 
-    const landscape = await clipIsLandscape(config, publicId);
-    const finished = await renderOverlayVideo(config, publicId, headline, 10 * 60 * 1000, landscape);
-    if (!finished) throw new Error("The overlay took too long to render. Try again.");
-
+    // The video goes out as uploaded; the branded look is the cover image,
+    // which Instagram fetches from this site while it processes the Reel.
+    const siteUrl = process.env.SITE_URL || "https://thisizatl.com";
     const mediaId = await postReel({
-      videoUrl: overlayVideoUrl(config, publicId, headline, landscape),
+      videoUrl,
+      coverUrl: `${siteUrl}/api/clip-cover/${id}`,
       caption,
       collaborators,
     });

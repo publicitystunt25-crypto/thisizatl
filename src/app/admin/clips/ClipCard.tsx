@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { approveClipAction, declineClipAction, previewClipOverlayAction } from "./actions";
+import { approveClipAction, declineClipAction } from "./actions";
 
 export interface ClipCardData {
   id: number;
@@ -29,9 +29,11 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
   const [headline, setHeadline] = useState(clip.defaultHeadline);
   const [caption, setCaption] = useState(clip.defaultCaption);
   const [collaborator, setCollaborator] = useState(clip.defaultCollaborator);
-  const [preview, setPreview] = useState<{ videoUrl: string; posterUrl: string } | null>(null);
+  // The headline the cover preview was last built with (it only refreshes when
+  // Preview is pressed, not on every keystroke) plus a cache-buster.
+  const [coverFor, setCoverFor] = useState({ headline: clip.defaultHeadline, v: 0 });
+  const [coverLoading, setCoverLoading] = useState(true);
   const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
-  const [previewing, startPreview] = useTransition();
   const [approving, startApprove] = useTransition();
   const [declining, startDecline] = useTransition();
 
@@ -43,16 +45,12 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
     return () => clearInterval(timer);
   }, [clip.status, router]);
 
-  const busy = previewing || approving || declining;
+  const busy = approving || declining;
 
   function handlePreview() {
     setMessage(null);
-    setPreview(null);
-    startPreview(async () => {
-      const result = await previewClipOverlayAction(clip.id, headline);
-      if (result.ok) setPreview({ videoUrl: result.videoUrl, posterUrl: result.posterUrl });
-      else setMessage({ kind: "error", text: result.error });
-    });
+    setCoverLoading(true);
+    setCoverFor((c) => ({ headline: headline.trim(), v: c.v + 1 }));
   }
 
   function handleApprove() {
@@ -79,7 +77,7 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
         <p className="font-medium text-blue-900">Posting to Instagram… ({clip.name})</p>
         <p className="mt-1 text-sm text-blue-800">
-          Rendering the overlay and waiting on Instagram to process the video. This usually takes a
+          Waiting on Instagram to process the video. This usually takes a
           few minutes &mdash; this card updates by itself.
         </p>
       </div>
@@ -112,38 +110,33 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
       )}
 
       <div className="mt-4 grid gap-5 md:grid-cols-2">
-        <div>
-          <p className={labelClasses}>{preview ? "With overlay" : "Original upload"}</p>
-          {/* key forces the player to reload when switching between original and overlay */}
-          <video
-            key={preview ? preview.videoUrl : clip.videoUrl}
-            src={preview ? preview.videoUrl : clip.videoUrl}
-            poster={preview?.posterUrl}
-            controls
-            playsInline
-            onError={() =>
-              setMessage({
-                kind: "error",
-                text: preview
-                  ? "The overlay video didn't load. Press Preview again."
-                  : "The original video didn't load.",
-              })
-            }
-            className={
-              preview
-                ? "mt-1 aspect-[9/16] w-[300px] max-w-full rounded-2xl bg-black object-contain ring-4 ring-zinc-800"
-                : "mt-1 max-h-[480px] w-full rounded-lg bg-black"
-            }
-          />
-          {preview && (
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              className="mt-2 text-xs font-medium text-brand-dark hover:underline"
-            >
-              Show original
-            </button>
-          )}
+        <div className="space-y-5">
+          <div>
+            <p className={labelClasses}>The video (plays as uploaded)</p>
+            <video
+              src={clip.videoUrl}
+              controls
+              playsInline
+              onError={() => setMessage({ kind: "error", text: "The original video didn't load." })}
+              className="mt-1 max-h-[480px] w-full rounded-lg bg-black"
+            />
+          </div>
+          <div>
+            <p className={labelClasses}>Instagram cover image</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={coverFor.v}
+              src={`/admin/clips/cover/${clip.id}?h=${encodeURIComponent(coverFor.headline)}&v=${coverFor.v}`}
+              alt="Cover image preview"
+              onLoad={() => setCoverLoading(false)}
+              onError={() => {
+                setCoverLoading(false);
+                setMessage({ kind: "error", text: "The cover preview didn't load. Press Preview cover to try again." });
+              }}
+              className="mt-1 aspect-[9/16] w-[300px] max-w-full rounded-2xl bg-black object-contain ring-4 ring-zinc-800"
+            />
+            {coverLoading && <p className="mt-1 text-xs text-zinc-500">Building the cover&hellip;</p>}
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -155,7 +148,7 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
           </div>
 
           <div>
-            <label className={labelClasses}>Headline on the video</label>
+            <label className={labelClasses}>Headline on the cover image</label>
             <input
               type="text"
               value={headline}
@@ -208,7 +201,7 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
           disabled={busy || !headline.trim()}
           className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {previewing ? "Rendering overlay… (up to a minute)" : "Preview with overlay"}
+          Preview cover
         </button>
         <button
           type="button"
