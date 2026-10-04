@@ -69,7 +69,7 @@ export async function fetchUploadedVideo(
 
 // The wordmark lives in Cloudinary as thisizatl/brand/wordmark; inside a
 // transformation URL a folder slash becomes a colon.
-const WORDMARK_LAYER = "thisizatl:brand:wordmark";
+const WORDMARK_LAYER = "thisizatl:brand:logo";
 const OUTPUT_FORMAT = "f_mp4,vc_h264,ac_aac,q_auto:good";
 
 // Cloudinary text layers need commas and slashes double-encoded on top of
@@ -94,7 +94,7 @@ export function overlayTransformation(headline: string, landscape: boolean): str
       `l_text:Arial_84_bold_text_align_center:${encodeOverlayText(text)},co_rgb:ff5a1f,c_fit,w_960,g_north,y_1340`
     );
   }
-  parts.push(`l_${WORDMARK_LAYER},w_560,g_south,y_90`);
+  parts.push(`l_${WORDMARK_LAYER},w_340,g_south,y_10`);
   return parts.join("/");
 }
 
