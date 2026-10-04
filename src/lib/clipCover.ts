@@ -83,7 +83,7 @@ function frameSvg(style: FrameStyle): string | null {
 }
 
 // The style the live covers use.
-const COVER_FRAME: FrameStyle = "solid";
+const COVER_FRAME: FrameStyle = "none";
 
 export async function renderClipCover(
   publicId: string,
@@ -160,7 +160,7 @@ export async function renderClipCover(
     .composite([
       { input: Buffer.from(overlay), top: 0, left: 0 },
       { input: logo, top: Math.round(logoTop), left: Math.round(WIDTH / 2 - tier.logoSize / 2) },
-      { input: wordmark, top: 280, left: WIDTH - 90 - wordmarkWidth },
+      { input: wordmark, top: 280, left: WIDTH - 40 - wordmarkWidth },
       ...(frameLayer ? [{ input: Buffer.from(frameLayer), top: 0, left: 0 }] : []),
     ])
     .jpeg({ quality: 90 })
