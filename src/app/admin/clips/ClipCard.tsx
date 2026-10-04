@@ -129,7 +129,11 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
                   : "The original video didn't load.",
               })
             }
-            className="mt-1 max-h-[480px] w-full rounded-lg bg-black"
+            className={
+              preview
+                ? "mt-1 aspect-[9/16] w-[300px] max-w-full rounded-2xl bg-black object-contain ring-4 ring-zinc-800"
+                : "mt-1 max-h-[480px] w-full rounded-lg bg-black"
+            }
           />
           {preview && (
             <button
