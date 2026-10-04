@@ -5,16 +5,20 @@ import { cloudinaryConfig, clipFrameUrl } from "@/lib/cloudinary";
 import { cropToFocus } from "@/lib/crop";
 import { escapeXml, wrapText, fitsWithinLines } from "@/lib/textOverlay";
 
-// Same look as the feed posts (photo on top, headline and logo in a black
-// panel), built from one still frame of the clip. It's used as the Reel's
-// cover image; the video itself plays unframed. Instagram crops the cover
-// differently for the profile grid and the Reels tab, so the 1080x1350 post
-// sits in the middle of a 1080x1920 canvas to keep everything inside the
-// areas that always show.
+// Full-bleed 1080x1920 cover built from one still frame of the clip: the
+// picture fills the whole canvas and fades to black toward the bottom, where
+// the headline and logo sit. It's used as the Reel's cover image; the video
+// itself plays unframed. Instagram's profile grid shows only the middle
+// 3:4 of the cover (roughly y 240-1680), so the text and wordmark are kept
+// inside that band.
 const WIDTH = 1080;
-const POST_HEIGHT = 1350;
-const CANVAS_HEIGHT = 1920;
-const PHOTO_HEIGHT = 880;
+const HEIGHT = 1920;
+const TEXT_BOTTOM = 1650;
+// Landscape clips end here, with the headline block starting just below.
+const FRONT_BOTTOM = 1000;
+// How dark the fade gets: enough for the orange text to stay readable, but
+// not so solid that the picture disappears at the bottom.
+const FADE_OPACITY = 0.82;
 const BRAND_ORANGE = "#ff5a1f";
 
 // Extracting a frame is a Cloudinary call; re-fetching it on every headline
@@ -50,7 +54,26 @@ export async function renderClipCover(publicId: string, headline: string): Promi
     fs.readFile(path.join(process.cwd(), "public/wordmark.png")),
   ]);
 
-  const photo = await cropToFocus(frame, WIDTH, PHOTO_HEIGHT, null);
+  // Vertical clips fill the canvas. A landscape clip would have to be
+  // zoomed in about 3x to do that, so it goes in at full width over a
+  // darkened, blurred copy of itself instead.
+  const meta = await sharp(frame).metadata();
+  const landscape = (meta.width ?? 1) > (meta.height ?? 1);
+  let base: Buffer;
+  if (!landscape) {
+    base = await cropToFocus(frame, WIDTH, HEIGHT, null);
+  } else {
+    const backdrop = await sharp(frame)
+      .resize(WIDTH, HEIGHT, { fit: "cover" })
+      .blur(40)
+      .modulate({ brightness: 0.45 })
+      .toBuffer();
+    const front = await sharp(frame).resize({ width: WIDTH }).toBuffer();
+    const frontH = (await sharp(front).metadata()).height ?? 608;
+    base = await sharp(backdrop)
+      .composite([{ input: front, top: Math.round(Math.max(0, FRONT_BOTTOM - frontH)), left: 0 }])
+      .toBuffer();
+  }
 
   const tier =
     CAPTION_TIERS.find((t) => fitsWithinLines(headline, t.maxCharsPerLine, t.maxLines)) ??
@@ -58,18 +81,17 @@ export async function renderClipCover(publicId: string, headline: string): Promi
   const lines = wrapText(headline, tier.maxCharsPerLine, tier.maxLines);
 
   const logo = await sharp(logoBuffer).resize(tier.logoSize, tier.logoSize).toBuffer();
-  const wordmarkWidth = 220;
+  const wordmarkWidth = 240;
   const wordmark = await sharp(wordmarkBuffer).resize({ width: wordmarkWidth }).toBuffer();
 
   const captionToLogoGap = 8;
-  const topGap = 12;
-  const bottomMargin = 18;
   const blockHeight = lines.length * tier.lineHeight;
-  const groupHeight = blockHeight + captionToLogoGap + tier.logoSize;
-  const availableHeight = POST_HEIGHT - bottomMargin - (PHOTO_HEIGHT + 30);
-  const groupTop = PHOTO_HEIGHT + 30 + topGap + Math.max(0, (availableHeight - topGap - groupHeight) / 2);
+  const groupTop = TEXT_BOTTOM - (blockHeight + captionToLogoGap + tier.logoSize);
   const captionStartY = groupTop + tier.fontSize * 0.8;
   const logoTop = groupTop + blockHeight + captionToLogoGap;
+  // The fade starts well above the first line so it blends in smoothly.
+  const fadeStart = Math.max(500, groupTop - 520);
+  const fadeSolid = Math.max(fadeStart + 100, groupTop - 20);
 
   const text = lines
     .map(
@@ -77,24 +99,24 @@ export async function renderClipCover(publicId: string, headline: string): Promi
         `<text x="${WIDTH / 2}" y="${captionStartY + i * tier.lineHeight}" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="${tier.fontSize}" fill="${BRAND_ORANGE}">${escapeXml(line)}</text>`
     )
     .join("");
-  const overlay = `<svg width="${WIDTH}" height="${POST_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    <line x1="40" y1="${PHOTO_HEIGHT + 30}" x2="${WIDTH - 40}" y2="${PHOTO_HEIGHT + 30}" stroke="${BRAND_ORANGE}" stroke-width="4" stroke-dasharray="14 10" />
+  const overlay = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="0" y1="${fadeStart}" x2="0" y2="${fadeSolid}">
+        <stop offset="0" stop-color="#0a0a0a" stop-opacity="0" />
+        <stop offset="1" stop-color="#0a0a0a" stop-opacity="${FADE_OPACITY}" />
+      </linearGradient>
+    </defs>
+    <rect x="0" y="${fadeStart}" width="${WIDTH}" height="${fadeSolid - fadeStart}" fill="url(#fade)" />
+    <rect x="0" y="${fadeSolid}" width="${WIDTH}" height="${HEIGHT - fadeSolid}" fill="#0a0a0a" fill-opacity="${FADE_OPACITY}" />
     ${text}
   </svg>`;
 
-  const post = await sharp(photo)
-    .extend({ bottom: POST_HEIGHT - PHOTO_HEIGHT, background: "#0a0a0a" })
+  return sharp(base)
     .composite([
-      { input: wordmark, top: 30, left: WIDTH - 40 - wordmarkWidth },
-      { input: logo, top: Math.round(logoTop), left: Math.round(WIDTH / 2 - tier.logoSize / 2) },
       { input: Buffer.from(overlay), top: 0, left: 0 },
+      { input: logo, top: Math.round(logoTop), left: Math.round(WIDTH / 2 - tier.logoSize / 2) },
+      { input: wordmark, top: 270, left: WIDTH - 40 - wordmarkWidth },
     ])
-    .png()
-    .toBuffer();
-
-  const margin = (CANVAS_HEIGHT - POST_HEIGHT) / 2;
-  return sharp(post)
-    .extend({ top: margin, bottom: margin, background: "#0a0a0a" })
     .jpeg({ quality: 90 })
     .toBuffer();
 }
