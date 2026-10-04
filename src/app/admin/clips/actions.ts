@@ -5,6 +5,7 @@ import {
   cloudinaryConfig,
   deleteClipAssets,
   overlayPosterUrl,
+  clipIsLandscape,
   overlayVideoUrl,
   renderOverlayVideo,
 } from "@/lib/cloudinary";
@@ -46,8 +47,9 @@ export async function previewClipOverlayAction(id: number, headline: string): Pr
   if (!submission) return { ok: false, error: "Submission not found." };
 
   const text = cleanHeadline(headline);
+  const landscape = await clipIsLandscape(config, submission.video_public_id).catch(() => false);
   try {
-    const finished = await renderOverlayVideo(config, submission.video_public_id, text, 80_000);
+    const finished = await renderOverlayVideo(config, submission.video_public_id, text, 80_000, landscape);
     if (!finished) {
       return { ok: false, error: "Still rendering -- give it a minute and press Preview again." };
     }
@@ -56,8 +58,8 @@ export async function previewClipOverlayAction(id: number, headline: string): Pr
   }
   return {
     ok: true,
-    videoUrl: overlayVideoUrl(config, submission.video_public_id, text),
-    posterUrl: overlayPosterUrl(config, submission.video_public_id, text),
+    videoUrl: overlayVideoUrl(config, submission.video_public_id, text, landscape),
+    posterUrl: overlayPosterUrl(config, submission.video_public_id, text, landscape),
   };
 }
 
@@ -107,11 +109,12 @@ async function runClipPost(
   try {
     if (!config) throw new Error("Cloudinary isn't configured.");
 
-    const finished = await renderOverlayVideo(config, publicId, headline, 10 * 60 * 1000);
+    const landscape = await clipIsLandscape(config, publicId);
+    const finished = await renderOverlayVideo(config, publicId, headline, 10 * 60 * 1000, landscape);
     if (!finished) throw new Error("The overlay took too long to render. Try again.");
 
     const mediaId = await postReel({
-      videoUrl: overlayVideoUrl(config, publicId, headline),
+      videoUrl: overlayVideoUrl(config, publicId, headline, landscape),
       caption,
       collaborators,
     });

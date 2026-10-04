@@ -83,9 +83,9 @@ function encodeOverlayText(text: string): string {
 // the ThisIzATL wordmark below. Vertical clips are cropped to fill the video
 // area; landscape clips are padded instead so they aren't chopped up. (Cloudinary
 // only accepts a plain color background for video, not blurred or auto ones.)
-export function overlayTransformation(headline: string): string {
+export function overlayTransformation(headline: string, landscape: boolean): string {
   const parts = [
-    "if_ar_lt_1.0/c_fill,w_1080,h_1300,g_auto/if_else/c_pad,w_1080,h_1300,b_rgb:0a0a0a/if_end",
+    landscape ? "c_pad,w_1080,h_1300,b_rgb:0a0a0a" : "c_fill,w_1080,h_1300,g_auto",
     "c_pad,w_1080,h_1920,g_north,b_rgb:0a0a0a",
   ];
   const text = headline.replace(/s+/g, " ").trim().slice(0, 140);
@@ -98,13 +98,26 @@ export function overlayTransformation(headline: string): string {
   return parts.join("/");
 }
 
-export function overlayVideoUrl(config: CloudinaryConfig, publicId: string, headline: string): string {
-  return `https://res.cloudinary.com/${config.cloudName}/video/upload/${overlayTransformation(headline)}/${OUTPUT_FORMAT}/${publicId}.mp4`;
+// Whether the uploaded clip is wider than tall. Looked up from Cloudinary
+// (conditional "if_ar" chains in the URL don't work reliably for video).
+export async function clipIsLandscape(config: CloudinaryConfig, publicId: string): Promise<boolean> {
+  const path = publicId.split("/").map(encodeURIComponent).join("/");
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${config.cloudName}/resources/video/upload/${path}`,
+    { headers: { Authorization: "Basic " + Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString("base64") } }
+  );
+  if (!res.ok) return false;
+  const data = (await res.json()) as { width?: number; height?: number };
+  return (data.width ?? 0) > (data.height ?? 1);
+}
+
+export function overlayVideoUrl(config: CloudinaryConfig, publicId: string, headline: string, landscape: boolean): string {
+  return `https://res.cloudinary.com/${config.cloudName}/video/upload/${overlayTransformation(headline, landscape)}/${OUTPUT_FORMAT}/${publicId}.mp4`;
 }
 
 // A single frame of the finished overlay, for a quick poster image.
-export function overlayPosterUrl(config: CloudinaryConfig, publicId: string, headline: string): string {
-  return `https://res.cloudinary.com/${config.cloudName}/video/upload/so_1/${overlayTransformation(headline)}/${publicId}.jpg`;
+export function overlayPosterUrl(config: CloudinaryConfig, publicId: string, headline: string, landscape: boolean): string {
+  return `https://res.cloudinary.com/${config.cloudName}/video/upload/so_1/${overlayTransformation(headline, landscape)}/${publicId}.jpg`;
 }
 
 function signParams(params: Record<string, string>, apiSecret: string): string {
@@ -123,10 +136,11 @@ export async function renderOverlayVideo(
   config: CloudinaryConfig,
   publicId: string,
   headline: string,
-  waitMs: number
+  waitMs: number,
+  landscape: boolean
 ): Promise<boolean> {
   const startedAt = Date.now();
-  const eager = `${overlayTransformation(headline)}/${OUTPUT_FORMAT}`;
+  const eager = `${overlayTransformation(headline, landscape)}/${OUTPUT_FORMAT}`;
   const timestamp = String(Math.floor(Date.now() / 1000));
   const params = { eager, public_id: publicId, timestamp, type: "upload" };
   const body = new URLSearchParams({
@@ -155,7 +169,7 @@ export async function renderOverlayVideo(
   // only shows up when something fetches the video (Instagram, as an opaque
   // "media upload failed"). Fetch it ourselves and surface Cloudinary's real
   // reason.
-  const url = overlayVideoUrl(config, publicId, headline);
+  const url = overlayVideoUrl(config, publicId, headline, landscape);
   do {
     const head = await fetch(url, { method: "HEAD" });
     const type = head.headers.get("content-type") ?? "";
