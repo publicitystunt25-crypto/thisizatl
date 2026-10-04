@@ -14,6 +14,8 @@ function formatMB(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
+const MAX_CLIP_MB = Math.round(MAX_CLIP_BYTES / (1024 * 1024));
+
 // Reads the clip's length in the browser so a too-long video is rejected
 // before a long upload, not after. Resolves null if the browser can't read
 // it (the server checks the real duration with Cloudinary regardless).
@@ -101,7 +103,7 @@ export default function ClipForm() {
     if (!file.type.startsWith("video/")) return setError("That file isn't a video.");
     if (file.size > MAX_CLIP_BYTES) {
       return setError(
-        `That video is ${formatMB(file.size)}MB -- please choose one under ${formatMB(MAX_CLIP_BYTES)}MB.`
+        `That video is ${formatMB(file.size)}MB -- please choose one under ${MAX_CLIP_MB}MB.`
       );
     }
     const duration = await readDuration(file);
@@ -172,7 +174,7 @@ export default function ClipForm() {
           className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-dark"
         />
         <p className="mt-1 text-xs text-zinc-400">
-          Up to {MAX_CLIP_SECONDS} seconds and {formatMB(MAX_CLIP_BYTES)}MB. Vertical videos work best.
+          Up to {MAX_CLIP_SECONDS} seconds and {MAX_CLIP_MB}MB. Vertical videos work best.
           {fileName ? ` Selected: ${fileName}` : ""}
         </p>
       </div>
