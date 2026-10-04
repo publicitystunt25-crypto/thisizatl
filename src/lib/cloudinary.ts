@@ -78,21 +78,23 @@ function encodeOverlayText(text: string): string {
   return encodeURIComponent(text).replace(/%2C/g, "%252C").replace(/%2F/g, "%252F");
 }
 
-// 1080x1920 (Reels size). Landscape clips get near-black bands above and
-// below, like the black bar on the feed images; vertical clips fill the
-// frame. (Cloudinary accepts fancier backgrounds like b_auto or b_blurred for
-// still images but rejects them for video, so it has to be a plain color.)
-// The headline sits well above the bottom edge so Instagram's own
-// caption/buttons don't cover it.
+// 1080x1920 (Reels size), laid out like the feed posts: the clip on top
+// (1080x1300) and a black panel under it holding the headline in orange with
+// the ThisIzATL wordmark below. Vertical clips are cropped to fill the video
+// area; landscape clips are padded instead so they aren't chopped up. (Cloudinary
+// only accepts a plain color background for video, not blurred or auto ones.)
 export function overlayTransformation(headline: string): string {
-  const parts = ["c_pad,w_1080,h_1920,b_rgb:0a0a0a"];
-  const text = headline.replace(/\s+/g, " ").trim().slice(0, 140);
+  const parts = [
+    "if_ar_lt_1.0/c_fill,w_1080,h_1300,g_auto/if_else/c_pad,w_1080,h_1300,b_rgb:0a0a0a/if_end",
+    "c_pad,w_1080,h_1920,g_north,b_rgb:0a0a0a",
+  ];
+  const text = headline.replace(/s+/g, " ").trim().slice(0, 140);
   if (text) {
     parts.push(
-      `l_text:Arial_70_bold_text_align_center:${encodeOverlayText(text)},co_rgb:ff5a1f,b_rgb:0a0a0acc,c_fit,w_940,g_south,y_380`
+      `l_text:Arial_84_bold_text_align_center:${encodeOverlayText(text)},co_rgb:ff5a1f,c_fit,w_960,g_north,y_1340`
     );
   }
-  parts.push(`l_${WORDMARK_LAYER},w_340,g_north_east,x_40,y_70`);
+  parts.push(`l_${WORDMARK_LAYER},w_560,g_south,y_90`);
   return parts.join("/");
 }
 
