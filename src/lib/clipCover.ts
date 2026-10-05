@@ -3,23 +3,23 @@ import fs from "fs/promises";
 import sharp from "sharp";
 import { cloudinaryConfig, clipFrameUrl } from "@/lib/cloudinary";
 import { cropToFocus } from "@/lib/crop";
-import { escapeXml, wrapText, fitsWithinLines } from "@/lib/textOverlay";
+import { escapeXml } from "@/lib/textOverlay";
+import {
+  BRAND_ORANGE,
+  COVER_HEIGHT as HEIGHT,
+  COVER_WIDTH as WIDTH,
+  FADE_OPACITY,
+  FRONT_BOTTOM,
+  WORDMARK_TOP,
+  WORDMARK_WIDTH,
+  layoutCover,
+} from "@/lib/coverLayout";
 
 // Full-bleed 1080x1920 cover built from one still frame of the clip: the
-// picture fills the whole canvas and fades to black toward the bottom, where
+// picture fills the whole canvas and fades to dark toward the bottom, where
 // the headline and logo sit. It's used as the Reel's cover image; the video
-// itself plays unframed. Instagram's profile grid shows only the middle
-// 3:4 of the cover (roughly y 240-1680), so the text and wordmark are kept
-// inside that band.
-const WIDTH = 1080;
-const HEIGHT = 1920;
-const TEXT_BOTTOM = 1650;
-// Landscape clips end here, with the headline block starting just below.
-const FRONT_BOTTOM = 1000;
-// How dark the fade gets: enough for the orange text to stay readable, but
-// not so solid that the picture disappears at the bottom.
-const FADE_OPACITY = 0.82;
-const BRAND_ORANGE = "#ff5a1f";
+// itself plays unframed. The geometry lives in coverLayout.ts so the preview
+// on the public upload form matches.
 
 // Extracting a frame is a Cloudinary call; re-fetching it on every headline
 // tweak in the review page is wasted work, so keep a few recent ones.
@@ -37,15 +37,6 @@ async function getFrame(publicId: string): Promise<Buffer | null> {
   frameCache.set(publicId, buf);
   return buf;
 }
-
-// The logo is twice the size it was on the feed-style layout; the headline
-// is a step larger, which is why fewer characters fit on a line.
-const CAPTION_TIERS = [
-  { fontSize: 128, lineHeight: 140, maxCharsPerLine: 13, maxLines: 2, logoSize: 300 },
-  { fontSize: 84, lineHeight: 100, maxCharsPerLine: 20, maxLines: 3, logoSize: 270 },
-  { fontSize: 68, lineHeight: 82, maxCharsPerLine: 25, maxLines: 4, logoSize: 230 },
-  { fontSize: 56, lineHeight: 68, maxCharsPerLine: 31, maxLines: 5, logoSize: 200 },
-];
 
 export type FrameStyle = "none" | "solid" | "dashed" | "double" | "polaroid";
 
@@ -82,7 +73,8 @@ function frameSvg(style: FrameStyle): string | null {
   }
 }
 
-// The style the live covers use.
+// The style the live covers use (the other styles were mocked up and
+// passed on; kept so a different one is a one-word change).
 const COVER_FRAME: FrameStyle = "none";
 
 export async function renderClipCover(
@@ -119,24 +111,11 @@ export async function renderClipCover(
       .toBuffer();
   }
 
-  const tier =
-    CAPTION_TIERS.find((t) => fitsWithinLines(headline, t.maxCharsPerLine, t.maxLines)) ??
-    CAPTION_TIERS[CAPTION_TIERS.length - 1];
-  const lines = wrapText(headline, tier.maxCharsPerLine, tier.maxLines);
+  const { tier, lines, captionStartY, logoTop, fadeStart, fadeSolid } = layoutCover(headline);
 
   const logo = await sharp(logoBuffer).resize(tier.logoSize, tier.logoSize).toBuffer();
-  const wordmarkWidth = 240;
+  const wordmark = await sharp(wordmarkBuffer).resize({ width: WORDMARK_WIDTH }).toBuffer();
   const frameLayer = frameSvg(opts.style ?? COVER_FRAME);
-  const wordmark = await sharp(wordmarkBuffer).resize({ width: wordmarkWidth }).toBuffer();
-
-  const captionToLogoGap = 8;
-  const blockHeight = lines.length * tier.lineHeight;
-  const groupTop = TEXT_BOTTOM - (blockHeight + captionToLogoGap + tier.logoSize);
-  const captionStartY = groupTop + tier.fontSize * 0.8;
-  const logoTop = groupTop + blockHeight + captionToLogoGap;
-  // The fade starts well above the first line so it blends in smoothly.
-  const fadeStart = Math.max(500, groupTop - 520);
-  const fadeSolid = Math.max(fadeStart + 100, groupTop - 20);
 
   const text = lines
     .map(
@@ -160,7 +139,7 @@ export async function renderClipCover(
     .composite([
       { input: Buffer.from(overlay), top: 0, left: 0 },
       { input: logo, top: Math.round(logoTop), left: Math.round(WIDTH / 2 - tier.logoSize / 2) },
-      { input: wordmark, top: 280, left: WIDTH - 40 - wordmarkWidth },
+      { input: wordmark, top: WORDMARK_TOP, left: WIDTH - 40 - WORDMARK_WIDTH },
       ...(frameLayer ? [{ input: Buffer.from(frameLayer), top: 0, left: 0 }] : []),
     ])
     .jpeg({ quality: 90 })

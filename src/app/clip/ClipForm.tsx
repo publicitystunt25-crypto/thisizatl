@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { getClipUploadTicket, submitClipAction } from "./actions";
 import { MAX_CLIP_BYTES, MAX_CLIP_SECONDS } from "./limits";
+import CoverPreview from "./CoverPreview";
+import { MAX_HEADLINE_LENGTH } from "@/lib/coverLayout";
 
 const inputClasses =
   "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none";
@@ -84,6 +86,8 @@ export default function ClipForm() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [headline, setHeadline] = useState("");
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -123,6 +127,7 @@ export default function ClipForm() {
       setPhase("saving");
       const result = await submitClipAction({
         name,
+        headline,
         email,
         instagram,
         caption,
@@ -170,13 +175,36 @@ export default function ClipForm() {
           accept="video/*"
           required
           disabled={busy}
-          onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+          onChange={(e) => {
+            setFileName(e.target.files?.[0]?.name ?? null);
+            setFile(e.target.files?.[0] ?? null);
+          }}
           className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-dark"
         />
         <p className="mt-1 text-xs text-zinc-400">
           Up to {MAX_CLIP_SECONDS} seconds and {MAX_CLIP_MB}MB. Vertical videos work best.
           {fileName ? ` Selected: ${fileName}` : ""}
         </p>
+      </div>
+
+      <div>
+        <label className={labelClasses}>Headline for the cover image</label>
+        <input
+          type="text"
+          required
+          maxLength={MAX_HEADLINE_LENGTH}
+          placeholder="Short and punchy, like a magazine headline"
+          value={headline}
+          onChange={(e) => setHeadline(e.target.value)}
+          disabled={busy}
+          className={inputClasses}
+        />
+        <p className="mt-1 text-xs text-zinc-400">
+          This is printed on the cover image of the Instagram post. Up to {MAX_HEADLINE_LENGTH} characters.
+        </p>
+        <div className="mt-3">
+          <CoverPreview file={file} headline={headline} />
+        </div>
       </div>
 
       <div>

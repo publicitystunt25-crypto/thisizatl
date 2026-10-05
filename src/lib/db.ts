@@ -476,6 +476,7 @@ export async function insertVideoSubmission(submission: {
   submitter_email: string | null;
   submitter_instagram: string | null;
   caption: string;
+  headline: string;
   video_public_id: string;
   video_url: string;
   duration_seconds: number | null;
@@ -484,8 +485,8 @@ export async function insertVideoSubmission(submission: {
   await ensureInit();
   const res = await pool.query<{ id: number }>(
     `INSERT INTO video_submissions
-       (submitter_name, submitter_email, submitter_instagram, caption, video_public_id, video_url, duration_seconds, bytes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (submitter_name, submitter_email, submitter_instagram, caption, headline, video_public_id, video_url, duration_seconds, bytes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (video_public_id) DO NOTHING
      RETURNING id`,
     [
@@ -493,6 +494,7 @@ export async function insertVideoSubmission(submission: {
       submission.submitter_email,
       submission.submitter_instagram,
       submission.caption,
+      submission.headline,
       submission.video_public_id,
       submission.video_url,
       submission.duration_seconds,

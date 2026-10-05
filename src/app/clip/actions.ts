@@ -4,6 +4,7 @@ import { cloudinaryConfig, createUploadSignature, fetchUploadedVideo } from "@/l
 import { insertVideoSubmission } from "@/lib/db";
 import { sendClipSubmissionNotification } from "@/lib/email";
 import { normalizeInstagramInput } from "@/lib/social";
+import { MAX_HEADLINE_LENGTH } from "@/lib/coverLayout";
 import { CLIP_FOLDER, MAX_CLIP_BYTES, MAX_CLIP_SECONDS } from "./limits";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -43,6 +44,7 @@ export async function getClipUploadTicket(): Promise<UploadTicket> {
 
 export type SubmitClipInput = {
   name: string;
+  headline: string;
   email: string;
   instagram: string;
   caption: string;
@@ -62,6 +64,9 @@ export async function submitClipAction(input: SubmitClipInput): Promise<SubmitCl
 
   const name = input.name.replace(/\s+/g, " ").trim().slice(0, 120);
   if (!name) return { ok: false, error: "Please enter your name." };
+
+  const headline = input.headline.replace(/\s+/g, " ").trim().slice(0, MAX_HEADLINE_LENGTH);
+  if (!headline) return { ok: false, error: "Please write a headline for the cover image." };
 
   const caption = input.caption.trim().slice(0, 2000);
   if (!caption) return { ok: false, error: "Please write a caption for your clip." };
@@ -100,6 +105,7 @@ export async function submitClipAction(input: SubmitClipInput): Promise<SubmitCl
     submitter_email: email,
     submitter_instagram: instagram,
     caption,
+    headline,
     video_public_id: input.publicId,
     video_url: video.secure_url,
     duration_seconds: video.duration,
