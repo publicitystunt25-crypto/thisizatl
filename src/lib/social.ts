@@ -404,6 +404,65 @@ export async function postToInstagramFeed(
   return { ok: true, mediaId };
 }
 
+// Publishes several images as one swipeable Instagram post. Each image gets
+// its own hidden "carousel item" container, then one parent container ties
+// them together in order. Returns the new post's media id.
+export async function postInstagramCarousel(params: {
+  imageUrls: string[];
+  caption: string;
+  collaborators?: string[];
+}): Promise<string> {
+  const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
+  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  if (!igUserId || !token) throw new Error("Instagram isn't configured on the server.");
+  if (params.imageUrls.length < 2 || params.imageUrls.length > 10) {
+    throw new Error("A carousel needs between 2 and 10 images.");
+  }
+
+  const post = async (body: Record<string, unknown>): Promise<string> => {
+    const res = await fetch(`${GRAPH_BASE}/${igUserId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, access_token: token }),
+    });
+    if (!res.ok) throw new Error(`Instagram carousel container failed: ${await res.text()}`);
+    return ((await res.json()) as { id: string }).id;
+  };
+
+  const children: string[] = [];
+  for (const imageUrl of params.imageUrls) {
+    const id = await post({ image_url: imageUrl, is_carousel_item: true });
+    await waitForContainerReady(id, token);
+    children.push(id);
+  }
+
+  const parentBody: Record<string, unknown> = {
+    media_type: "CAROUSEL",
+    children: children.join(","),
+    caption: params.caption,
+  };
+  const collaborators = [...new Set(params.collaborators ?? [])];
+  let creationId: string;
+  try {
+    creationId = await post(collaborators.length ? { ...parentBody, collaborators } : parentBody);
+  } catch (err) {
+    if (!collaborators.length) throw err;
+    console.error(`Carousel collaborator invite failed for [${collaborators.join(", ")}], retrying without:`, err);
+    creationId = await post(parentBody);
+  }
+  await waitForContainerReady(creationId, token);
+
+  const publishRes = await fetch(`${GRAPH_BASE}/${igUserId}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ creation_id: creationId, access_token: token }),
+  });
+  if (!publishRes.ok) {
+    throw new Error(`Instagram carousel publish failed: ${publishRes.status} ${await publishRes.text()}`);
+  }
+  return ((await publishRes.json()) as { id: string }).id;
+}
+
 export interface AccountMedia {
   id: string;
   timestamp: string;
