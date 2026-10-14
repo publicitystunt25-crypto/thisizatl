@@ -17,7 +17,7 @@ export interface ClipCardData {
   createdLabel: string;
   defaultHeadline: string;
   defaultCaption: string;
-  defaultCollaborator: string;
+  defaultCollaborators: string[];
 }
 
 const inputClasses =
@@ -28,7 +28,8 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
   const router = useRouter();
   const [headline, setHeadline] = useState(clip.defaultHeadline);
   const [caption, setCaption] = useState(clip.defaultCaption);
-  const [collaborator, setCollaborator] = useState(clip.defaultCollaborator);
+  const [collaborators, setCollaborators] = useState<string[]>(clip.defaultCollaborators);
+  const [collabInput, setCollabInput] = useState("");
   // The headline the cover preview was last built with (it only refreshes when
   // Preview is pressed, not on every keystroke) plus a cache-buster.
   const [coverFor, setCoverFor] = useState({ headline: clip.defaultHeadline, v: 0 });
@@ -56,11 +57,38 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
     setCoverFor((c) => ({ headline: headline.trim(), v: c.v + 1 }));
   }
 
+  // Handles typed into the add box count too, so approving without pressing
+  // "Add" first doesn't silently drop them.
+  function pendingCollaborators(): string[] {
+    const typed = collabInput
+      .split(/[\s,]+/)
+      .map((h) => h.trim())
+      .filter(Boolean);
+    return [...collaborators, ...typed];
+  }
+
+  function addCollaborators() {
+    const typed = collabInput
+      .split(/[\s,]+/)
+      .map((h) => h.trim().replace(/^@?/, "@"))
+      .filter((h) => h.length > 1);
+    if (typed.length === 0) return;
+    const next = [...collaborators];
+    for (const h of typed) if (!next.some((n) => n.toLowerCase() === h.toLowerCase())) next.push(h);
+    if (next.length > 3) {
+      setMessage({ kind: "error", text: "Instagram allows up to 3 collaborators on one post." });
+      return;
+    }
+    setMessage(null);
+    setCollaborators(next);
+    setCollabInput("");
+  }
+
   function handleApprove() {
     setMessage(null);
     if (!window.confirm("Post this to Instagram as a Reel now? This can't be undone from here.")) return;
     startApprove(async () => {
-      const result = await approveClipAction(clip.id, headline, caption, collaborator);
+      const result = await approveClipAction(clip.id, headline, caption, pendingCollaborators());
       if (result.ok) router.refresh();
       else setMessage({ kind: "error", text: result.error });
     });
@@ -186,15 +214,55 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
             />
           </div>
 
-          <div>
-            <label className={labelClasses}>Invite as collaborator (optional)</label>
-            <input
-              type="text"
-              value={collaborator}
-              placeholder="@handle"
-              onChange={(e) => setCollaborator(e.target.value)}
-              className={inputClasses}
-            />
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <p className={labelClasses}>Collaborators (up to 3)</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Each one gets an invite to co-author the Reel, so it also shows on their profile once they
+              accept. Their account must be public and a Business or Creator profile.
+            </p>
+            {collaborators.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {collaborators.map((c) => (
+                  <li
+                    key={c}
+                    className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-zinc-800 ring-1 ring-zinc-300"
+                  >
+                    {c}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${c}`}
+                      onClick={() => setCollaborators(collaborators.filter((x) => x !== c))}
+                      className="ml-1 text-zinc-400 hover:text-red-600"
+                    >
+                      &times;
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={collabInput}
+                placeholder="@handle (press Add or Enter)"
+                onChange={(e) => setCollabInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCollaborators();
+                  }
+                }}
+                className={inputClasses}
+              />
+              <button
+                type="button"
+                onClick={addCollaborators}
+                disabled={!collabInput.trim() || collaborators.length >= 3}
+                className="mt-1 shrink-0 rounded-lg border border-zinc-300 px-4 text-sm font-medium text-zinc-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
           </div>
         </div>
       </div>

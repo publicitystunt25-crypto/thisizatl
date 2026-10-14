@@ -1,4 +1,4 @@
-import { GRAPH_BASE } from "@/lib/social";
+import { GRAPH_BASE, extractUntaggableUsername } from "@/lib/social";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -65,13 +65,23 @@ export async function postReel(params: {
   const token = process.env.FB_PAGE_ACCESS_TOKEN;
   if (!igUserId || !token) throw new Error("Instagram isn't configured on the server.");
 
-  let result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl, params.collaborators);
-  if ("error" in result && params.collaborators.length > 0) {
-    console.error(
-      `Reel collaborator invite failed for [${params.collaborators.join(", ")}], retrying without:`,
-      result.error
-    );
-    result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl);
+  // One account that can't be tagged (private, not a Business/Creator
+  // profile) makes Instagram reject the whole list. Instagram names the bad
+  // one, so drop just that account and retry with the rest; any other
+  // failure falls back to posting with no collaborators at all.
+  let remaining = [...new Set(params.collaborators)];
+  let result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl, remaining);
+  while ("error" in result && remaining.length > 0) {
+    const bad = extractUntaggableUsername(result.error);
+    if (bad && remaining.includes(bad)) {
+      console.error(`Reel collaborator @${bad} can't be tagged, retrying with the rest:`, result.error);
+      remaining = remaining.filter((u) => u !== bad);
+      result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl, remaining);
+    } else {
+      console.error(`Reel collaborator invite failed for [${remaining.join(", ")}], retrying without any:`, result.error);
+      result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl);
+      break;
+    }
   }
   if ("error" in result) throw new Error(`Instagram rejected the Reel: ${result.error}`);
 

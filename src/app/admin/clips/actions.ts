@@ -33,7 +33,7 @@ export async function approveClipAction(
   id: number,
   headlineRaw: string,
   captionRaw: string,
-  collaboratorRaw: string
+  collaboratorsRaw: string[]
 ): Promise<ApproveResult> {
   await requireAdmin();
   const config = cloudinaryConfig();
@@ -44,12 +44,17 @@ export async function approveClipAction(
   if (!headline) return { ok: false, error: "Add a headline for the cover image first." };
   if (!caption) return { ok: false, error: "Add an Instagram caption first." };
 
+  // Instagram allows at most 3 collaborators on one post.
   const collaborators: string[] = [];
-  const handle = collaboratorRaw.trim() ? toHandle(collaboratorRaw) : null;
-  if (collaboratorRaw.trim() && !handle) {
-    return { ok: false, error: "That collaborator handle doesn't look right." };
+  for (const raw of collaboratorsRaw) {
+    if (!raw.trim()) continue;
+    const handle = toHandle(raw);
+    if (!handle) return { ok: false, error: `"${raw.trim()}" doesn't look like an Instagram handle.` };
+    if (!collaborators.includes(handle)) collaborators.push(handle);
   }
-  if (handle) collaborators.push(handle);
+  if (collaborators.length > 3) {
+    return { ok: false, error: "Instagram allows up to 3 collaborators on one post." };
+  }
 
   const claimed = await claimVideoSubmissionForPosting(id, headline, caption);
   if (!claimed) return { ok: false, error: "This clip is already posting, posted, or declined." };

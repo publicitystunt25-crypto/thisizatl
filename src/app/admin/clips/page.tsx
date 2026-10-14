@@ -30,7 +30,7 @@ function toCardData(s: VideoSubmission): ClipCardData {
     createdLabel: formatShortDateTime(s.created_at),
     defaultHeadline: s.headline ?? suggestHeadline(s.caption),
     defaultCaption: s.ig_caption ?? s.caption,
-    defaultCollaborator: handle ? `@${handle}` : "",
+    defaultCollaborators: handle ? [`@${handle}`] : [],
   };
 }
 

@@ -235,7 +235,7 @@ function sleep(ms: number): Promise<void> {
 // pkillapkg cannot be tagged on this media." Pulling that name out lets the
 // caller retry with just the bad one removed instead of dropping every
 // collaborator over one untaggable account.
-function extractUntaggableUsername(errorText: string): string | null {
+export function extractUntaggableUsername(errorText: string): string | null {
   try {
     const parsed = JSON.parse(errorText) as {
       error?: { error_subcode?: number; error_user_msg?: string };
