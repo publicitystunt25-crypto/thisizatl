@@ -53,11 +53,11 @@ export type SubmitClipInput = {
   publicId: string;
 };
 
-export type SubmitClipResult = { ok: true } | { ok: false; error: string };
+export type SubmitClipResult = { ok: true; coverUrl: string | null } | { ok: false; error: string };
 
 export async function submitClipAction(input: SubmitClipInput): Promise<SubmitClipResult> {
   // Honeypot: real people never see this field.
-  if (input.company.trim()) return { ok: true };
+  if (input.company.trim()) return { ok: true, coverUrl: null };
 
   const config = cloudinaryConfig();
   if (!config) return { ok: false, error: "Video uploads aren't available right now." };
@@ -100,7 +100,7 @@ export async function submitClipAction(input: SubmitClipInput): Promise<SubmitCl
     return { ok: false, error: `Clips need to be ${MAX_CLIP_SECONDS} seconds or shorter.` };
   }
 
-  const id = await insertVideoSubmission({
+  const saved = await insertVideoSubmission({
     submitter_name: name,
     submitter_email: email,
     submitter_instagram: instagram,
@@ -114,7 +114,7 @@ export async function submitClipAction(input: SubmitClipInput): Promise<SubmitCl
 
   // null means this exact upload was already saved (a double-click/retry) --
   // it's already on its way to the newsroom, so don't email twice.
-  if (id !== null) {
+  if (saved !== null) {
     try {
       await sendClipSubmissionNotification({
         name,
@@ -129,5 +129,8 @@ export async function submitClipAction(input: SubmitClipInput): Promise<SubmitCl
     }
   }
 
-  return { ok: true };
+  return {
+    ok: true,
+    coverUrl: saved ? `/api/clip-cover/${saved.id}?t=${saved.coverToken}` : null,
+  };
 }

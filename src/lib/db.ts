@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { Pool } from "pg";
 import { cache } from "react";
 
@@ -99,6 +100,7 @@ function ensureInit(): Promise<void> {
       ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS error TEXT;
       ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS posting_started_at TIMESTAMPTZ;
       ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS posted_at TIMESTAMPTZ;
+      ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS cover_token TEXT;
     `).then(() => undefined);
   }
   return initialized;
@@ -469,7 +471,8 @@ export async function insertNomination(nomination: {
   return res.rows[0].id;
 }
 
-// Returns the new row's id, or null if this exact upload was already saved
+// Returns the new row's id and a random cover token (lets the submitter view
+// their own cover image), or null if this exact upload was already saved
 // (a double-click or retry shouldn't create a second submission).
 export async function insertVideoSubmission(submission: {
   submitter_name: string;
@@ -481,12 +484,13 @@ export async function insertVideoSubmission(submission: {
   video_url: string;
   duration_seconds: number | null;
   bytes: number;
-}): Promise<number | null> {
+}): Promise<{ id: number; coverToken: string } | null> {
   await ensureInit();
+  const coverToken = randomBytes(16).toString("hex");
   const res = await pool.query<{ id: number }>(
     `INSERT INTO video_submissions
-       (submitter_name, submitter_email, submitter_instagram, caption, headline, video_public_id, video_url, duration_seconds, bytes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (submitter_name, submitter_email, submitter_instagram, caption, headline, video_public_id, video_url, duration_seconds, bytes, cover_token)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (video_public_id) DO NOTHING
      RETURNING id`,
     [
@@ -499,9 +503,11 @@ export async function insertVideoSubmission(submission: {
       submission.video_url,
       submission.duration_seconds,
       submission.bytes,
+      coverToken,
     ]
   );
-  return res.rows[0]?.id ?? null;
+  const id = res.rows[0]?.id;
+  return id ? { id, coverToken } : null;
 }
 
 export interface VideoSubmission {
@@ -521,6 +527,7 @@ export interface VideoSubmission {
   error: string | null;
   posting_started_at: string | null;
   posted_at: string | null;
+  cover_token: string | null;
   created_at: string;
 }
 

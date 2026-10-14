@@ -88,6 +88,8 @@ export default function ClipForm() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [headline, setHeadline] = useState("");
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverFailed, setCoverFailed] = useState(false);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -136,6 +138,7 @@ export default function ClipForm() {
         publicId: uploaded.public_id,
       });
       if (!result.ok) throw new Error(result.error);
+      setCoverUrl(result.coverUrl);
       setPhase("done");
     } catch (err) {
       setPhase("idle");
@@ -151,6 +154,21 @@ export default function ClipForm() {
           Our team will take a look. If we post it, we&rsquo;ll tag you
           {instagram ? "" : " (add your Instagram next time so we can)"}.
         </p>
+        {coverUrl && !coverFailed && (
+          <div className="mt-5">
+            <p className="font-medium">Here&rsquo;s your cover image:</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={coverUrl}
+              alt="Your Instagram cover image"
+              onError={() => setCoverFailed(true)}
+              className="mt-2 aspect-[9/16] w-[260px] max-w-full rounded-xl bg-black ring-4 ring-zinc-800"
+            />
+            <p className="mt-2 text-xs text-green-700">
+              This is what shows on Instagram if we post your clip. Our team may adjust the wording first.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
