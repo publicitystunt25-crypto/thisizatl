@@ -33,6 +33,9 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
   // Preview is pressed, not on every keystroke) plus a cache-buster.
   const [coverFor, setCoverFor] = useState({ headline: clip.defaultHeadline, v: 0 });
   const [coverLoading, setCoverLoading] = useState(true);
+  // The video only loads when asked for, so a long list of clips stays fast
+  // and doesn't use up Cloudinary bandwidth on clips nobody plays.
+  const [showVideo, setShowVideo] = useState(false);
   const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
   const [approving, startApprove] = useTransition();
   const [declining, startDecline] = useTransition();
@@ -112,20 +115,11 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
       <div className="mt-4 grid gap-5 md:grid-cols-2">
         <div className="space-y-5">
           <div>
-            <p className={labelClasses}>The video (plays as uploaded)</p>
-            <video
-              src={clip.videoUrl}
-              controls
-              playsInline
-              onError={() => setMessage({ kind: "error", text: "The original video didn't load." })}
-              className="mt-1 max-h-[480px] w-full rounded-lg bg-black"
-            />
-          </div>
-          <div>
             <p className={labelClasses}>Instagram cover image</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               key={coverFor.v}
+              loading="lazy"
               src={`/admin/clips/cover/${clip.id}?h=${encodeURIComponent(coverFor.headline)}&v=${coverFor.v}`}
               alt="Cover image preview"
               onLoad={() => setCoverLoading(false)}
@@ -136,6 +130,29 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
               className="mt-1 aspect-[9/16] w-[300px] max-w-full rounded-2xl bg-black object-contain ring-4 ring-zinc-800"
             />
             {coverLoading && <p className="mt-1 text-xs text-zinc-500">Building the cover&hellip;</p>}
+          </div>
+          <div>
+            {showVideo ? (
+              <>
+                <p className={labelClasses}>The video (plays as uploaded)</p>
+                <video
+                  src={clip.videoUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  onError={() => setMessage({ kind: "error", text: "The original video didn't load." })}
+                  className="mt-1 max-h-[480px] w-full rounded-lg bg-black"
+                />
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowVideo(true)}
+                className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                &#9654; Play video
+              </button>
+            )}
           </div>
         </div>
 
