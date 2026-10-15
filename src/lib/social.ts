@@ -268,7 +268,7 @@ async function waitForContainerReady(creationId: string, token: string): Promise
   }
 }
 
-async function postToInstagramStory(post: SocialPost): Promise<void> {
+export async function postToInstagramStory(post: SocialPost): Promise<void> {
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
   const token = process.env.FB_PAGE_ACCESS_TOKEN;
   if (!igUserId || !token || !post.image_url) return;
