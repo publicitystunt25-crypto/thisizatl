@@ -1,3 +1,4 @@
+import { getPageToken } from "@/lib/metaToken";
 const GRAPH_VERSION = "v26.0";
 export const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const SITE_URL = process.env.SITE_URL || "https://thisizatl.com";
@@ -116,7 +117,7 @@ export function getInstagramHandlesFromSources(sourcesJson: string): {
 
 async function postToFacebookPage(post: SocialPost): Promise<string | null> {
   const pageId = process.env.FB_PAGE_ID;
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   if (!pageId || !token) return null;
 
   const url = `${SITE_URL}/posts/${post.slug}`;
@@ -143,7 +144,7 @@ async function postToFacebookPage(post: SocialPost): Promise<string | null> {
 // included) -- Content Publishing is publish-only. Stories also auto-expire
 // after 24h regardless. Facebook feed posts, however, can be deleted.
 export async function deleteFacebookPost(fbPostId: string): Promise<boolean> {
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   if (!token) return false;
 
   const res = await fetch(`${GRAPH_BASE}/${fbPostId}?access_token=${token}`, {
@@ -270,7 +271,7 @@ async function waitForContainerReady(creationId: string, token: string): Promise
 
 export async function postToInstagramStory(post: SocialPost): Promise<void> {
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   if (!igUserId || !token || !post.image_url) return;
 
   // Composited server-side: original photo + headline + "read full story" CTA
@@ -330,7 +331,7 @@ export async function postToInstagramFeed(
   post: SocialPost & { caption: string }
 ): Promise<{ ok: boolean; mediaId: string | null }> {
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   if (!igUserId || !token || !post.image_url) return { ok: false, mediaId: null };
 
   // Cache-busted: this composite gets iterated on and re-fetched by Meta at
@@ -413,7 +414,7 @@ export async function postInstagramCarousel(params: {
   collaborators?: string[];
 }): Promise<string> {
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   if (!igUserId || !token) throw new Error("Instagram isn't configured on the server.");
   if (params.imageUrls.length < 2 || params.imageUrls.length > 10) {
     throw new Error("A carousel needs between 2 and 10 images.");
@@ -474,7 +475,7 @@ export interface AccountMedia {
 // manually-posted photo has no corresponding row (and no ig_media_id) in the
 // app's own database at all.
 export async function getRecentAccountMedia(): Promise<AccountMedia[]> {
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
   if (!token || !igUserId) return [];
 
@@ -498,7 +499,7 @@ export interface MediaComment {
 // are never returned here, so there's no risk of the sweep seeing its own
 // past replies and looping on them.
 export async function getMediaComments(mediaId: string): Promise<MediaComment[]> {
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   if (!token) return [];
 
   const res = await fetch(`${GRAPH_BASE}/${mediaId}/comments?fields=id,text&access_token=${token}`);
@@ -511,7 +512,7 @@ export async function getMediaComments(mediaId: string): Promise<MediaComment[]>
 }
 
 export async function replyToComment(commentId: string, message: string): Promise<void> {
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   if (!token) return;
 
   const res = await fetch(`${GRAPH_BASE}/${commentId}/replies`, {

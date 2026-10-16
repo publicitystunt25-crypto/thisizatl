@@ -1,3 +1,4 @@
+import { getPageToken } from "@/lib/metaToken";
 import { GRAPH_BASE, extractUntaggableUsername } from "@/lib/social";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -62,7 +63,7 @@ export async function postReel(params: {
   collaborators: string[];
 }): Promise<string> {
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
-  const token = process.env.FB_PAGE_ACCESS_TOKEN;
+  const token = await getPageToken();
   if (!igUserId || !token) throw new Error("Instagram isn't configured on the server.");
 
   // One account that can't be tagged (private, not a Business/Creator
