@@ -9,6 +9,7 @@ import {
   COVER_HEIGHT as HEIGHT,
   COVER_WIDTH as WIDTH,
   FADE_OPACITY,
+  LANDSCAPE_FADE_OPACITY,
   FRONT_BOTTOM,
   WORDMARK_TOP,
   WORDMARK_WIDTH,
@@ -101,8 +102,8 @@ export async function renderClipCover(
   } else {
     const backdrop = await sharp(frame)
       .resize(WIDTH, HEIGHT, { fit: "cover" })
-      .blur(40)
-      .modulate({ brightness: 0.45 })
+      .blur(50)
+      .modulate({ brightness: 1.0, saturation: 1.6 })
       .toBuffer();
     const front = await sharp(frame).resize({ width: WIDTH }).toBuffer();
     const frontH = (await sharp(front).metadata()).height ?? 608;
@@ -112,6 +113,7 @@ export async function renderClipCover(
   }
 
   const { tier, lines, captionStartY, logoTop, fadeStart, fadeSolid } = layoutCover(headline);
+  const fadeOpacity = landscape ? LANDSCAPE_FADE_OPACITY : FADE_OPACITY;
 
   const logo = await sharp(logoBuffer).resize(tier.logoSize, tier.logoSize).toBuffer();
   const wordmark = await sharp(wordmarkBuffer).resize({ width: WORDMARK_WIDTH }).toBuffer();
@@ -127,11 +129,11 @@ export async function renderClipCover(
     <defs>
       <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="0" y1="${fadeStart}" x2="0" y2="${fadeSolid}">
         <stop offset="0" stop-color="#0a0a0a" stop-opacity="0" />
-        <stop offset="1" stop-color="#0a0a0a" stop-opacity="${FADE_OPACITY}" />
+        <stop offset="1" stop-color="#0a0a0a" stop-opacity="${fadeOpacity}" />
       </linearGradient>
     </defs>
     <rect x="0" y="${fadeStart}" width="${WIDTH}" height="${fadeSolid - fadeStart}" fill="url(#fade)" />
-    <rect x="0" y="${fadeSolid}" width="${WIDTH}" height="${HEIGHT - fadeSolid}" fill="#0a0a0a" fill-opacity="${FADE_OPACITY}" />
+    <rect x="0" y="${fadeSolid}" width="${WIDTH}" height="${HEIGHT - fadeSolid}" fill="#0a0a0a" fill-opacity="${fadeOpacity}" />
     ${text}
   </svg>`;
 

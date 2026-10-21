@@ -14,6 +14,9 @@ export const FRONT_BOTTOM = 1000;
 // How dark the fade gets: enough for the orange text to stay readable, but
 // not so solid that the picture disappears at the bottom.
 export const FADE_OPACITY = 0.82;
+// Landscape covers already have a blurred copy of the picture behind the text,
+// so the fade can be lighter and the colour shows through instead of black.
+export const LANDSCAPE_FADE_OPACITY = 0.6;
 export const BRAND_ORANGE = "#ff5a1f";
 export const WORDMARK_WIDTH = 240;
 export const WORDMARK_TOP = 280;

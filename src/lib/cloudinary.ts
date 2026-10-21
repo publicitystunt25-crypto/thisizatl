@@ -68,6 +68,92 @@ export function clipFrameUrl(config: CloudinaryConfig, publicId: string): string
   return `https://res.cloudinary.com/${config.cloudName}/video/upload/so_1,w_1080,c_limit/${publicId}.jpg`;
 }
 
+// ---------------------------------------------------------------------------
+// Widescreen clips: fill the black bars with a blurred copy of the video
+// ---------------------------------------------------------------------------
+
+// Whether the uploaded clip is wider than it is tall, asked of Cloudinary.
+export async function clipIsLandscape(config: CloudinaryConfig, publicId: string): Promise<boolean> {
+  const path = publicId.split("/").map(encodeURIComponent).join("/");
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${config.cloudName}/resources/video/upload/${path}`,
+    { headers: { Authorization: "Basic " + Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString("base64") } }
+  );
+  if (!res.ok) return false;
+  const data = (await res.json()) as { width?: number; height?: number };
+  return (data.width ?? 0) > (data.height ?? 1);
+}
+
+// 1080x1920 Reel frame: the clip blown up to fill the whole frame and blurred
+// as the background, with the sharp clip full-width in the middle. Instagram
+// treats black bars as a sign of a low-effort repost, so widescreen clips get
+// this. (A layer's public id uses ":" where the folder path has "/".)
+function blurFillTransformation(publicId: string): string {
+  const layerId = publicId.split("/").join(":");
+  return `c_fill,w_1080,h_1920/e_blur:1200/l_video:${layerId}/c_fit,w_1080/fl_layer_apply,g_center`;
+}
+const BLURFILL_FORMAT = "f_mp4,vc_h264,ac_aac,q_auto:good";
+
+export function blurFillVideoUrl(config: CloudinaryConfig, publicId: string): string {
+  return `https://res.cloudinary.com/${config.cloudName}/video/upload/${blurFillTransformation(publicId)}/${BLURFILL_FORMAT}/${publicId}.mp4`;
+}
+
+function signParams(params: Record<string, string>, apiSecret: string): string {
+  const toSign = Object.keys(params)
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join("&");
+  return createHash("sha1").update(toSign + apiSecret).digest("hex");
+}
+
+// Builds the blurred-fill version now, so it exists before Instagram is asked
+// to fetch it, and confirms it is really deliverable (a transformation that
+// Cloudinary can't build still returns OK from the render call and only fails
+// when something fetches the video). Returns false if it isn't ready when
+// waitMs runs out.
+export async function renderBlurFillVideo(
+  config: CloudinaryConfig,
+  publicId: string,
+  waitMs: number
+): Promise<boolean> {
+  const startedAt = Date.now();
+  const eager = `${blurFillTransformation(publicId)}/${BLURFILL_FORMAT}`;
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const params = { eager, public_id: publicId, timestamp, type: "upload" };
+  const body = new URLSearchParams({
+    ...params,
+    api_key: config.apiKey,
+    signature: signParams(params, config.apiSecret),
+  });
+
+  try {
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${config.cloudName}/video/explicit`, {
+      method: "POST",
+      body,
+      signal: AbortSignal.timeout(waitMs),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error?.message || `Cloudinary render failed (${res.status})`);
+    }
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) return false;
+    throw err;
+  }
+
+  const url = blurFillVideoUrl(config, publicId);
+  do {
+    const head = await fetch(url, { method: "HEAD" });
+    const type = head.headers.get("content-type") ?? "";
+    if (head.ok && type.startsWith("video/")) return true;
+    if (head.status === 400 || head.status === 401 || head.status === 403) {
+      throw new Error(`Cloudinary couldn't build the widescreen version: ${head.headers.get("x-cld-error") || head.status}`);
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  } while (Date.now() - startedAt < waitMs);
+  return false;
+}
+
 // Removes the uploaded clip once it is finished
 // with (posted or declined) so storage doesn't pile up.
 export async function deleteClipAssets(config: CloudinaryConfig, publicId: string): Promise<void> {

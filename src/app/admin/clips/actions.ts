@@ -1,7 +1,13 @@
 "use server";
 
 import { requireAdmin } from "@/lib/auth";
-import { cloudinaryConfig, deleteClipAssets } from "@/lib/cloudinary";
+import {
+  blurFillVideoUrl,
+  cloudinaryConfig,
+  clipIsLandscape,
+  deleteClipAssets,
+  renderBlurFillVideo,
+} from "@/lib/cloudinary";
 import {
   claimVideoSubmissionForPosting,
   getVideoSubmission,
@@ -74,11 +80,19 @@ async function runClipPost(
   try {
     if (!config) throw new Error("Cloudinary isn't configured.");
 
-    // The video goes out as uploaded; the branded look is the cover image,
-    // which Instagram fetches from this site while it processes the Reel.
+    // Vertical clips go out as uploaded. Widescreen ones are rebuilt first with
+    // a blurred copy of the video filling the black bars. The branded look is
+    // the cover image, which Instagram fetches from this site while it
+    // processes the Reel.
+    let finalVideoUrl = videoUrl;
+    if (await clipIsLandscape(config, publicId)) {
+      const ready = await renderBlurFillVideo(config, publicId, 10 * 60 * 1000);
+      if (!ready) throw new Error("The widescreen version took too long to build. Try again.");
+      finalVideoUrl = blurFillVideoUrl(config, publicId);
+    }
     const siteUrl = process.env.SITE_URL || "https://thisizatl.com";
     const mediaId = await postReel({
-      videoUrl,
+      videoUrl: finalVideoUrl,
       coverUrl: `${siteUrl}/api/clip-cover/${id}`,
       caption,
       collaborators,

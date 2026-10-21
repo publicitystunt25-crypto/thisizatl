@@ -6,6 +6,7 @@ import {
   COVER_HEIGHT,
   COVER_WIDTH,
   FADE_OPACITY,
+  LANDSCAPE_FADE_OPACITY,
   FRONT_BOTTOM,
   WORDMARK_TOP,
   WORDMARK_WIDTH,
@@ -107,25 +108,24 @@ export default function CoverPreview({ file, headline }: { file: File | null; he
       const h = frame.height * scale;
       ctx.drawImage(frame, (W - w) / 2, (H - h) / 2, w, h);
     } else {
-      // Landscape: full width over a darkened, blurred copy of itself.
+      // Landscape: full width over a bright, blurred copy of itself.
       const scale = Math.max(W / frame.width, H / frame.height) * 1.1;
       const w = frame.width * scale;
       const h = frame.height * scale;
-      ctx.filter = "blur(40px)";
+      ctx.filter = "blur(50px) saturate(1.6)";
       ctx.drawImage(frame, (W - w) / 2, (H - h) / 2, w, h);
       ctx.filter = "none";
-      ctx.fillStyle = "rgba(0,0,0,0.55)";
-      ctx.fillRect(0, 0, W, H);
       const fh = (frame.height * W) / frame.width;
       ctx.drawImage(frame, 0, Math.max(0, FRONT_BOTTOM - fh), W, fh);
     }
 
+    const fadeOpacity = frame.height >= frame.width ? FADE_OPACITY : LANDSCAPE_FADE_OPACITY;
     const gradient = ctx.createLinearGradient(0, fadeStart, 0, fadeSolid);
     gradient.addColorStop(0, "rgba(10,10,10,0)");
-    gradient.addColorStop(1, `rgba(10,10,10,${FADE_OPACITY})`);
+    gradient.addColorStop(1, `rgba(10,10,10,${fadeOpacity})`);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, fadeStart, W, fadeSolid - fadeStart);
-    ctx.fillStyle = `rgba(10,10,10,${FADE_OPACITY})`;
+    ctx.fillStyle = `rgba(10,10,10,${fadeOpacity})`;
     ctx.fillRect(0, fadeSolid, W, H - fadeSolid);
 
     ctx.fillStyle = BRAND_ORANGE;
