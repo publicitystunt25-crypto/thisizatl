@@ -241,9 +241,15 @@ export function extractUntaggableUsername(errorText: string): string | null {
     const parsed = JSON.parse(errorText) as {
       error?: { error_subcode?: number; error_user_msg?: string };
     };
-    if (parsed.error?.error_subcode !== 2207066) return null;
-    const match = parsed.error.error_user_msg?.match(/The user (\S+) cannot be tagged/);
-    return match?.[1] ?? null;
+    const subcode = parsed.error?.error_subcode;
+    const msg = parsed.error?.error_user_msg ?? "";
+    // 2207066: "The user X cannot be tagged on this media."
+    if (subcode === 2207066) return msg.match(/The user (\S+) cannot be tagged/)?.[1] ?? null;
+    // 2207018: "The following user(s) cannot be accessed: x, y" (private or
+    // nonexistent account). Takes the first name; the retry loop removes it
+    // and any others get named on the next pass.
+    if (subcode === 2207018) return msg.match(/cannot be accessed:\s*([^\s,]+)/)?.[1] ?? null;
+    return null;
   } catch {
     return null;
   }

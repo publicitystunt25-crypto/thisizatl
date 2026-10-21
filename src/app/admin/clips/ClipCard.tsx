@@ -20,6 +20,17 @@ export interface ClipCardData {
   defaultCollaborators: string[];
 }
 
+export type PersonMode = "collab" | "tag" | "both";
+interface Person {
+  handle: string;
+  mode: PersonMode;
+}
+const MODE_LABELS: Record<PersonMode, string> = {
+  collab: "Collaborator",
+  tag: "Tag",
+  both: "Collaborator + Tag",
+};
+
 const inputClasses =
   "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none";
 const labelClasses = "block text-xs font-medium uppercase tracking-wide text-zinc-500";
@@ -28,8 +39,13 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
   const router = useRouter();
   const [headline, setHeadline] = useState(clip.defaultHeadline);
   const [caption, setCaption] = useState(clip.defaultCaption);
-  const [collaborators, setCollaborators] = useState<string[]>(clip.defaultCollaborators);
-  const [collabInput, setCollabInput] = useState("");
+  // People are entered once; each one is either invited as a collaborator,
+  // tagged on the Reel, or both.
+  const [people, setPeople] = useState<Person[]>(
+    clip.defaultCollaborators.map((handle) => ({ handle, mode: "collab" as PersonMode }))
+  );
+  const [personInput, setPersonInput] = useState("");
+  const [newMode, setNewMode] = useState<PersonMode>("collab");
   // The headline the cover preview was last built with (it only refreshes when
   // Preview is pressed, not on every keystroke) plus a cache-buster.
   const [coverFor, setCoverFor] = useState({ headline: clip.defaultHeadline, v: 0 });
@@ -57,38 +73,51 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
     setCoverFor((c) => ({ headline: headline.trim(), v: c.v + 1 }));
   }
 
-  // Handles typed into the add box count too, so approving without pressing
-  // "Add" first doesn't silently drop them.
-  function pendingCollaborators(): string[] {
-    const typed = collabInput
-      .split(/[\s,]+/)
-      .map((h) => h.trim())
-      .filter(Boolean);
-    return [...collaborators, ...typed];
-  }
-
-  function addCollaborators() {
-    const typed = collabInput
+  function typedHandles(): string[] {
+    return personInput
       .split(/[\s,]+/)
       .map((h) => h.trim().replace(/^@?/, "@"))
       .filter((h) => h.length > 1);
-    if (typed.length === 0) return;
-    const next = [...collaborators];
-    for (const h of typed) if (!next.some((n) => n.toLowerCase() === h.toLowerCase())) next.push(h);
-    if (next.length > 3) {
+  }
+
+  // Names typed into the add box count too, so approving without pressing
+  // "Add" first doesn't silently drop them.
+  function allPeople(): Person[] {
+    const next = [...people];
+    for (const h of typedHandles()) {
+      if (!next.some((p) => p.handle.toLowerCase() === h.toLowerCase())) next.push({ handle: h, mode: newMode });
+    }
+    return next;
+  }
+
+  function addPeople() {
+    if (typedHandles().length === 0) return;
+    const next = allPeople();
+    const collabs = next.filter((p) => p.mode !== "tag").length;
+    if (collabs > 3) {
       setMessage({ kind: "error", text: "Instagram allows up to 3 collaborators on one post." });
       return;
     }
     setMessage(null);
-    setCollaborators(next);
-    setCollabInput("");
+    setPeople(next);
+    setPersonInput("");
+  }
+
+  function changeMode(handle: string, mode: PersonMode) {
+    const next = people.map((p) => (p.handle === handle ? { ...p, mode } : p));
+    if (next.filter((p) => p.mode !== "tag").length > 3) {
+      setMessage({ kind: "error", text: "Instagram allows up to 3 collaborators on one post." });
+      return;
+    }
+    setMessage(null);
+    setPeople(next);
   }
 
   function handleApprove() {
     setMessage(null);
     if (!window.confirm("Post this to Instagram as a Reel now? This can't be undone from here.")) return;
     startApprove(async () => {
-      const result = await approveClipAction(clip.id, headline, caption, pendingCollaborators());
+      const result = await approveClipAction(clip.id, headline, caption, allPeople());
       if (result.ok) router.refresh();
       else setMessage({ kind: "error", text: result.error });
     });
@@ -215,24 +244,34 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
           </div>
 
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-            <p className={labelClasses}>Collaborators (up to 3)</p>
+            <p className={labelClasses}>People on this post</p>
             <p className="mt-1 text-xs text-zinc-500">
-              Each one gets an invite to co-author the Reel, so it also shows on their profile once they
-              accept. Their account must be public and a Business or Creator profile.
+              Add each name once, then choose what to do with them. <strong>Collaborator</strong> sends
+              a co-author invite (up to 3; the post also shows on their profile once they accept; their
+              account must be public and a Business or Creator profile). <strong>Tag</strong> tags them
+              on the Reel so they&rsquo;re notified.
             </p>
-            {collaborators.length > 0 && (
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {collaborators.map((c) => (
-                  <li
-                    key={c}
-                    className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-zinc-800 ring-1 ring-zinc-300"
-                  >
-                    {c}
+            {people.length > 0 && (
+              <ul className="mt-2 space-y-2">
+                {people.map((p) => (
+                  <li key={p.handle} className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-zinc-300">
+                    <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">{p.handle}</span>
+                    <select
+                      value={p.mode}
+                      onChange={(e) => changeMode(p.handle, e.target.value as PersonMode)}
+                      className="rounded-md border border-zinc-300 px-2 py-1 text-sm"
+                    >
+                      {(Object.keys(MODE_LABELS) as PersonMode[]).map((m) => (
+                        <option key={m} value={m}>
+                          {MODE_LABELS[m]}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
-                      aria-label={`Remove ${c}`}
-                      onClick={() => setCollaborators(collaborators.filter((x) => x !== c))}
-                      className="ml-1 text-zinc-400 hover:text-red-600"
+                      aria-label={`Remove ${p.handle}`}
+                      onClick={() => setPeople(people.filter((x) => x.handle !== p.handle))}
+                      className="text-zinc-400 hover:text-red-600"
                     >
                       &times;
                     </button>
@@ -240,24 +279,35 @@ export default function ClipCard({ clip }: { clip: ClipCardData }) {
                 ))}
               </ul>
             )}
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <input
                 type="text"
-                value={collabInput}
+                value={personInput}
                 placeholder="@handle (press Add or Enter)"
-                onChange={(e) => setCollabInput(e.target.value)}
+                onChange={(e) => setPersonInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    addCollaborators();
+                    addPeople();
                   }
                 }}
-                className={inputClasses}
+                className={`${inputClasses} min-w-[10rem] flex-1`}
               />
+              <select
+                value={newMode}
+                onChange={(e) => setNewMode(e.target.value as PersonMode)}
+                className="mt-1 rounded-lg border border-zinc-300 px-2 text-sm"
+              >
+                {(Object.keys(MODE_LABELS) as PersonMode[]).map((m) => (
+                  <option key={m} value={m}>
+                    {MODE_LABELS[m]}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
-                onClick={addCollaborators}
-                disabled={!collabInput.trim() || collaborators.length >= 3}
+                onClick={addPeople}
+                disabled={!personInput.trim()}
                 className="mt-1 shrink-0 rounded-lg border border-zinc-300 px-4 text-sm font-medium text-zinc-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Add
