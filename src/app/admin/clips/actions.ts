@@ -39,7 +39,7 @@ export async function approveClipAction(
   id: number,
   headlineRaw: string,
   captionRaw: string,
-  peopleRaw: { handle: string; mode: "collab" | "tag" | "both" }[]
+  collaboratorsRaw: string[]
 ): Promise<ApproveResult> {
   await requireAdmin();
   const config = cloudinaryConfig();
@@ -50,17 +50,13 @@ export async function approveClipAction(
   if (!headline) return { ok: false, error: "Add a headline for the cover image first." };
   if (!caption) return { ok: false, error: "Add an Instagram caption first." };
 
-  // Each person is entered once and either invited as a collaborator (at most
-  // 3 on one post), tagged on the Reel, or both.
+  // Instagram allows at most 3 collaborators on one post.
   const collaborators: string[] = [];
-  const tags: string[] = [];
-  for (const person of peopleRaw) {
-    if (!person.handle.trim()) continue;
-    const handle = toHandle(person.handle);
-    if (!handle) return { ok: false, error: `"${person.handle.trim()}" doesn't look like an Instagram handle.` };
-    const mode = person.mode === "tag" || person.mode === "both" ? person.mode : "collab";
-    if (mode !== "tag" && !collaborators.includes(handle)) collaborators.push(handle);
-    if (mode !== "collab" && !tags.includes(handle)) tags.push(handle);
+  for (const raw of collaboratorsRaw) {
+    if (!raw.trim()) continue;
+    const handle = toHandle(raw);
+    if (!handle) return { ok: false, error: `"${raw.trim()}" doesn't look like an Instagram handle.` };
+    if (!collaborators.includes(handle)) collaborators.push(handle);
   }
   if (collaborators.length > 3) {
     return { ok: false, error: "Instagram allows up to 3 collaborators on one post." };
@@ -69,7 +65,7 @@ export async function approveClipAction(
   const claimed = await claimVideoSubmissionForPosting(id, headline, caption);
   if (!claimed) return { ok: false, error: "This clip is already posting, posted, or declined." };
 
-  void runClipPost(claimed.id, claimed.video_public_id, claimed.video_url, caption, collaborators, tags);
+  void runClipPost(claimed.id, claimed.video_public_id, claimed.video_url, caption, collaborators);
   return { ok: true };
 }
 
@@ -78,8 +74,7 @@ async function runClipPost(
   publicId: string,
   videoUrl: string,
   caption: string,
-  collaborators: string[],
-  tags: string[]
+  collaborators: string[]
 ): Promise<void> {
   const config = cloudinaryConfig();
   try {
@@ -101,7 +96,6 @@ async function runClipPost(
       coverUrl: `${siteUrl}/api/clip-cover/${id}`,
       caption,
       collaborators,
-      tags,
     });
     await markVideoSubmissionPosted(id, mediaId);
 

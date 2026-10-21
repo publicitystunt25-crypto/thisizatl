@@ -9,8 +9,7 @@ async function createReelContainer(
   videoUrl: string,
   caption: string,
   coverUrl?: string,
-  collaborators?: string[],
-  userTags?: string[]
+  collaborators?: string[]
 ): Promise<{ id: string } | { error: string }> {
   const body: Record<string, unknown> = {
     media_type: "REELS",
@@ -20,8 +19,6 @@ async function createReelContainer(
     access_token: token,
   };
   if (coverUrl) body.cover_url = coverUrl;
-  // Reels take plain usernames here; a position on the video isn't allowed.
-  if (userTags && userTags.length > 0) body.user_tags = userTags.map((username) => ({ username }));
   if (collaborators && collaborators.length > 0) body.collaborators = collaborators;
 
   const res = await fetch(`${GRAPH_BASE}/${igUserId}/media`, {
@@ -64,38 +61,28 @@ export async function postReel(params: {
   coverUrl?: string;
   caption: string;
   collaborators: string[];
-  tags?: string[];
 }): Promise<string> {
   const igUserId = process.env.IG_BUSINESS_ACCOUNT_ID;
   const token = await getPageToken();
   if (!igUserId || !token) throw new Error("Instagram isn't configured on the server.");
 
   // One account that can't be tagged (private, not a Business/Creator
-  // profile) makes Instagram reject the whole request. Instagram names the bad
-  // one, so drop just that account and retry with the rest. If the error
-  // doesn't name anyone, drop the tags first and then the collaborators, so
-  // the Reel still goes out.
+  // profile) makes Instagram reject the whole list. Instagram names the bad
+  // one, so drop just that account and retry with the rest; any other
+  // failure falls back to posting with no collaborators at all.
   let remaining = [...new Set(params.collaborators)];
-  let tags = [...new Set(params.tags ?? [])];
-  const attempt = () =>
-    createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl, remaining, tags);
-  let result = await attempt();
-  while ("error" in result && (remaining.length > 0 || tags.length > 0)) {
+  let result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl, remaining);
+  while ("error" in result && remaining.length > 0) {
     const bad = extractUntaggableUsername(result.error);
     if (bad && remaining.includes(bad)) {
       console.error(`Reel collaborator @${bad} can't be tagged, retrying with the rest:`, result.error);
       remaining = remaining.filter((u) => u !== bad);
-    } else if (bad && tags.includes(bad)) {
-      console.error(`Reel tag @${bad} can't be applied, retrying with the rest:`, result.error);
-      tags = tags.filter((u) => u !== bad);
-    } else if (tags.length > 0) {
-      console.error(`Reel tags failed for [${tags.join(", ")}], retrying without tags:`, result.error);
-      tags = [];
+      result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl, remaining);
     } else {
       console.error(`Reel collaborator invite failed for [${remaining.join(", ")}], retrying without any:`, result.error);
-      remaining = [];
+      result = await createReelContainer(igUserId, token, params.videoUrl, params.caption, params.coverUrl);
+      break;
     }
-    result = await attempt();
   }
   if ("error" in result) throw new Error(`Instagram rejected the Reel: ${result.error}`);
 
