@@ -236,6 +236,7 @@ Tell us your story and add a photo -- our team reviews every submission before i
 // Sent to the newsroom inbox when someone uploads a video clip through /clip.
 export async function sendClipSubmissionNotification(clip: {
   name: string;
+  headline?: string | null;
   email: string | null;
   instagram: string | null;
   caption: string;
@@ -246,16 +247,21 @@ export async function sendClipSubmissionNotification(clip: {
   const to = process.env.SUBMISSION_NOTIFY_EMAIL;
   if (!apiKey || !to) return;
 
+  const siteUrl = (process.env.SITE_URL || "https://thisizatl.com").replace(/\/$/, "");
+  const headlineLine = clip.headline ? `Cover headline they wrote: ${clip.headline}\n` : "";
   const text = `New video clip submission from ${clip.name}
 
 Instagram: ${clip.instagram || "(not provided)"}
 Email: ${clip.email || "(not provided)"}
 Length: ${clip.durationSeconds != null ? `${Math.round(clip.durationSeconds)} seconds` : "(unknown)"}
-
+${headlineLine}
 Caption they submitted:
 ${clip.caption}
 
-Watch the clip: ${clip.videoUrl}`;
+Watch the clip: ${clip.videoUrl}
+
+Review and approve it here (admin login required):
+${siteUrl}/admin/clips`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

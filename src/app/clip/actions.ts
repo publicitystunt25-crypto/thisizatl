@@ -118,6 +118,7 @@ export async function submitClipAction(input: SubmitClipInput): Promise<SubmitCl
     try {
       await sendClipSubmissionNotification({
         name,
+        headline,
         email,
         instagram,
         caption,
