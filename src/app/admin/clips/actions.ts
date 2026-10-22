@@ -65,7 +65,7 @@ export async function approveClipAction(
   const claimed = await claimVideoSubmissionForPosting(id, headline, caption);
   if (!claimed) return { ok: false, error: "This clip is already posting, posted, or declined." };
 
-  void runClipPost(claimed.id, claimed.video_public_id, claimed.video_url, caption, collaborators);
+  void runClipPost(claimed.id, claimed.video_public_id, claimed.video_url, caption, collaborators, headline);
   return { ok: true };
 }
 
@@ -74,7 +74,8 @@ async function runClipPost(
   publicId: string,
   videoUrl: string,
   caption: string,
-  collaborators: string[]
+  collaborators: string[],
+  headline: string
 ): Promise<void> {
   const config = cloudinaryConfig();
   try {
@@ -86,9 +87,9 @@ async function runClipPost(
     // processes the Reel.
     let finalVideoUrl = videoUrl;
     if (await clipIsLandscape(config, publicId)) {
-      const ready = await renderBlurFillVideo(config, publicId, 10 * 60 * 1000);
+      const ready = await renderBlurFillVideo(config, publicId, 10 * 60 * 1000, headline);
       if (!ready) throw new Error("The widescreen version took too long to build. Try again.");
-      finalVideoUrl = blurFillVideoUrl(config, publicId);
+      finalVideoUrl = blurFillVideoUrl(config, publicId, headline);
     }
     const siteUrl = process.env.SITE_URL || "https://thisizatl.com";
     const mediaId = await postReel({

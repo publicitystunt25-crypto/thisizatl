@@ -88,14 +88,41 @@ export async function clipIsLandscape(config: CloudinaryConfig, publicId: string
 // as the background, with the sharp clip full-width in the middle. Instagram
 // treats black bars as a sign of a low-effort repost, so widescreen clips get
 // this. (A layer's public id uses ":" where the folder path has "/".)
-function blurFillTransformation(publicId: string): string {
+// Cloudinary text layers need commas and slashes double-encoded on top of
+// normal URL encoding, or the layer cuts off at the first one. Emoji can't be
+// drawn by the font and would blank the whole layer, so they are dropped.
+function encodeOverlayText(text: string): string {
+  const plain = text
+    .replace(/[\p{Extended_Pictographic}\u200d\ufe0f]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 140);
+  return encodeURIComponent(plain).replace(/%2C/g, "%252C").replace(/%2F/g, "%252F");
+}
+
+function blurFillTransformation(publicId: string, headline: string): string {
   const layerId = publicId.split("/").join(":");
-  return `c_fill,w_1080,h_1920/e_blur:1200/l_video:${layerId}/c_fit,w_1080/fl_layer_apply,g_center`;
+  const parts = [
+    "c_fill,w_1080,h_1920",
+    "e_blur:1200",
+    `l_video:${layerId}`,
+    "c_fit,w_1080",
+    "fl_layer_apply,g_center",
+  ];
+  const text = encodeOverlayText(headline);
+  // The headline sits in the blurred area under the clip, high enough that
+  // Instagram's caption and buttons at the very bottom don't cover it.
+  if (text) {
+    parts.push(
+      `l_text:Arial_72_bold_text_align_center:${text},co_rgb:ff5a1f,b_rgb:0a0a0acc,c_fit,w_940,g_south,y_400`
+    );
+  }
+  return parts.join("/");
 }
 const BLURFILL_FORMAT = "f_mp4,vc_h264,ac_aac,q_auto:good";
 
-export function blurFillVideoUrl(config: CloudinaryConfig, publicId: string): string {
-  return `https://res.cloudinary.com/${config.cloudName}/video/upload/${blurFillTransformation(publicId)}/${BLURFILL_FORMAT}/${publicId}.mp4`;
+export function blurFillVideoUrl(config: CloudinaryConfig, publicId: string, headline: string): string {
+  return `https://res.cloudinary.com/${config.cloudName}/video/upload/${blurFillTransformation(publicId, headline)}/${BLURFILL_FORMAT}/${publicId}.mp4`;
 }
 
 function signParams(params: Record<string, string>, apiSecret: string): string {
@@ -114,10 +141,11 @@ function signParams(params: Record<string, string>, apiSecret: string): string {
 export async function renderBlurFillVideo(
   config: CloudinaryConfig,
   publicId: string,
-  waitMs: number
+  waitMs: number,
+  headline: string
 ): Promise<boolean> {
   const startedAt = Date.now();
-  const eager = `${blurFillTransformation(publicId)}/${BLURFILL_FORMAT}`;
+  const eager = `${blurFillTransformation(publicId, headline)}/${BLURFILL_FORMAT}`;
   const timestamp = String(Math.floor(Date.now() / 1000));
   const params = { eager, public_id: publicId, timestamp, type: "upload" };
   const body = new URLSearchParams({
@@ -141,7 +169,7 @@ export async function renderBlurFillVideo(
     throw err;
   }
 
-  const url = blurFillVideoUrl(config, publicId);
+  const url = blurFillVideoUrl(config, publicId, headline);
   do {
     const head = await fetch(url, { method: "HEAD" });
     const type = head.headers.get("content-type") ?? "";
