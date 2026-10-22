@@ -62,10 +62,26 @@ const RESERVED_PATH_SEGMENTS = new Set([
 // whether it's a profile, reel, or post link -- used to catch a submitter
 // pasting an Instagram link into the wrong form field (e.g. "Link to Your
 // Work" instead of the Instagram question).
+// Links copied out of a Google search result or the Google app arrive wrapped
+// as https://www.google.com/url?...&url=https://www.instagram.com/handle/&...
+// Unwrap those so the real destination is what gets checked.
+function unwrapGoogleRedirect(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (/(^|\.)google\.[a-z.]+$/.test(parsed.hostname) && parsed.pathname === "/url") {
+      const target = parsed.searchParams.get("url") ?? parsed.searchParams.get("q");
+      if (target) return target;
+    }
+  } catch {
+    // not a parseable URL -- fall through and let the caller deal with it
+  }
+  return url;
+}
+
 export function isInstagramUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   try {
-    return /(^|\.)instagram\.com$/.test(new URL(url).hostname);
+    return /(^|\.)instagram\.com$/.test(new URL(unwrapGoogleRedirect(url)).hostname);
   } catch {
     return false;
   }
@@ -82,7 +98,7 @@ export function isInstagramUrl(url: string | null | undefined): boolean {
 export function extractInstagramHandle(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(unwrapGoogleRedirect(url));
     if (!/(^|\.)instagram\.com$/.test(parsed.hostname)) return null;
     const handle = parsed.pathname.split("/").filter(Boolean)[0]?.toLowerCase();
     if (!handle || RESERVED_PATH_SEGMENTS.has(handle)) return null;
