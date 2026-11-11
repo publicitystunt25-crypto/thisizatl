@@ -63,25 +63,44 @@ export async function GET(
         : null;
   const photo = await cropToFocus(imgBuffer, WIDTH, PHOTO_HEIGHT, focus, zoom);
 
-  // Wider lines (more chars each) instead of many short stacked lines --
-  // keeps the block shorter vertically so it can actually sit centered in
-  // the available space instead of running out of room near the edge.
-  // Headlines never get truncated with "..." -- instead this tries
-  // progressively smaller font/logo tiers until the full text actually fits
-  // within that tier's line limit, and uses the largest one that works. Each
-  // tier's numbers were picked to leave a safe margin above the canvas
-  // bottom at that line count (checked by hand against this layout's fixed
-  // photo/box heights), so a longer headline shrinking further never
-  // collides with the divider above or the edge below.
-  const CAPTION_TIERS = [
-    { fontSize: 115, lineHeight: 126, maxCharsPerLine: 14, maxLines: 2, logoSize: 150 },
-    { fontSize: 75, lineHeight: 90, maxCharsPerLine: 22, maxLines: 3, logoSize: 130 },
-    { fontSize: 60, lineHeight: 73, maxCharsPerLine: 28, maxLines: 4, logoSize: 110 },
-    { fontSize: 50, lineHeight: 61, maxCharsPerLine: 35, maxLines: 5, logoSize: 95 },
-  ];
-  const tier =
-    CAPTION_TIERS.find((t) => fitsWithinLines(caption, t.maxCharsPerLine, t.maxLines)) ??
-    CAPTION_TIERS[CAPTION_TIERS.length - 1];
+  // The headline gets the biggest font that still fits. For each size from
+  // large to small this works out how many characters fit across a line, wraps
+  // the full headline at that width, and keeps the first size where the lines
+  // (plus the logo underneath) fit in the space below the divider. Headlines
+  // are never truncated -- a very long one just ends up at the smallest size.
+  // The logo shrinks as the headline gets taller, same as before.
+  const TEXT_WIDTH = 1000;
+  // Average glyph width / font size for the bold headline font. Smaller sizes are used for long headlines,
+  // which wrap into more lines with more chance of a wide line, so they get extra side margin.
+  const charWidthRatio = (fontSize: number) => (fontSize >= 62 ? 0.54 : 0.6);
+  const LINE_HEIGHT_RATIO = 1.12;
+  const MAX_FONT = 115;
+  const MIN_FONT = 46;
+  const logoForLines = (lines: number) => (lines <= 2 ? 150 : lines === 3 ? 130 : lines === 4 ? 110 : 95);
+  const spaceBelowDivider = HEIGHT - 18 - (PHOTO_HEIGHT + 30) - 12 - 14;
+  const pickTier = () => {
+    for (let fontSize = MAX_FONT; fontSize >= MIN_FONT; fontSize -= 2) {
+      const maxCharsPerLine = Math.floor(TEXT_WIDTH / (fontSize * charWidthRatio(fontSize)));
+      for (let maxLines = 1; maxLines <= 5; maxLines++) {
+        if (!fitsWithinLines(caption, maxCharsPerLine, maxLines)) continue;
+        const lineHeight = Math.round(fontSize * LINE_HEIGHT_RATIO);
+        const logoSize = logoForLines(maxLines);
+        if (maxLines * lineHeight + 8 + logoSize <= spaceBelowDivider) {
+          return { fontSize, lineHeight, maxCharsPerLine, maxLines, logoSize };
+        }
+        break;
+      }
+    }
+    const fontSize = MIN_FONT;
+    return {
+      fontSize,
+      lineHeight: Math.round(fontSize * LINE_HEIGHT_RATIO),
+      maxCharsPerLine: Math.floor(TEXT_WIDTH / (fontSize * charWidthRatio(fontSize))),
+      maxLines: 5,
+      logoSize: logoForLines(5),
+    };
+  };
+  const tier = pickTier();
   const captionLines = wrapText(caption, tier.maxCharsPerLine, tier.maxLines);
   const captionLineHeight = tier.lineHeight;
   const captionFontSize = tier.fontSize;
