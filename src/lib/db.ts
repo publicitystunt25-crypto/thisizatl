@@ -64,6 +64,7 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS revision_send_at TIMESTAMPTZ;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS hold_after_approval BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS collab_handles TEXT;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS tag_handles TEXT;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -193,6 +194,8 @@ export interface Post {
   hold_after_approval: boolean;
   // JSON array of Instagram handles the submitter chose to collaborate with; null = they were never asked.
   collab_handles: string | null;
+  // JSON array of Instagram handles to @mention in the feed caption (tagged, not invited as collaborators).
+  tag_handles: string | null;
   revision_send_at: string | null;
   review_note: string | null;
   review_responded_at: string | null;
@@ -381,7 +384,7 @@ export async function clearSchedule(id: number): Promise<void> {
 export async function getDueScheduledPosts(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, tag_handles
      FROM posts WHERE status = 'scheduled' AND scheduled_for <= now()`
   );
   return res.rows;
@@ -497,14 +500,14 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
   await ensureInit();
   if (category) {
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, tag_handles
        FROM posts WHERE category = $1 AND status = 'published' ORDER BY created_at DESC`,
       [category]
     );
     return res.rows;
   }
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, tag_handles
      FROM posts WHERE status = 'published' ORDER BY created_at DESC`
   );
   return res.rows;
@@ -513,7 +516,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at, hold_after_approval
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, tag_handles, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at, hold_after_approval
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -906,7 +909,7 @@ export async function canSendNomineeInvite(email: string): Promise<boolean> {
 export async function getPostsByAuthor(author: string): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, tag_handles
      FROM posts WHERE author = $1 ORDER BY created_at DESC`,
     [author]
   );
@@ -916,7 +919,7 @@ export async function getPostsByAuthor(author: string): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at, hold_after_approval
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, tag_handles, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at, hold_after_approval
      FROM posts WHERE id = $1`,
     [id]
   );
@@ -969,7 +972,7 @@ export const getPostBySlug = cache(
   async (slug: string): Promise<Post | undefined> => {
     await ensureInit();
     const res = await pool.query<Post>(
-      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles
+      `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, collab_handles, tag_handles
        FROM posts WHERE slug = $1 AND status = 'published'`,
       [slug]
     );

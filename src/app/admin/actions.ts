@@ -318,11 +318,23 @@ export async function acceptAllAction(id: number): Promise<void> {
   // Not every story has an Instagram account to tag -- those still get a feed post, just without a tag.
   if (!post.ig_feed_shared) {
     try {
-      const caption = await generateFeedCaption({
+      const baseCaption = await generateFeedCaption({
         title: post.title,
         body: post.body,
         instagramHandle,
       });
+      // Accounts to tag (not invite): @mentioned at the end of the caption, skipping anyone already invited.
+      let tagHandles: string[] = [];
+      try {
+        tagHandles = post.tag_handles ? (JSON.parse(post.tag_handles) as string[]) : [];
+      } catch {
+        tagHandles = [];
+      }
+      const invited = new Set([instagramHandle, ...collaboratorHandles].filter(Boolean));
+      const toTag = tagHandles.filter((h) => !invited.has(h));
+      const caption = toTag.length ? `${baseCaption}
+
+${toTag.map((h) => "@" + h).join(" ")}` : baseCaption;
       const feedResult = await postToInstagramFeed({
         id: post.id,
         title: post.title,
