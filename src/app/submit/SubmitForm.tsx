@@ -24,16 +24,29 @@ function Honeypot() {
 
 const MAX_COLLAB_HANDLES = 5;
 
-// Render's own configured limit (see next.config.ts's serverActions.bodySizeLimit)
-// is 50MB; this stays comfortably under that so a rejection is a clear
-// message here rather than the server dropping the connection partway
-// through a huge upload. Checking client-side first also means the rest of
-// the form's answers survive a too-big photo instead of the whole submit
-// attempt failing.
-const MAX_PHOTO_BYTES = 45 * 1024 * 1024;
+// The server's body limit (next.config.ts's serverActions.bodySizeLimit) is
+// 75MB for the whole request; this stays comfortably under that so a
+// rejection is a clear message here rather than the server dropping the
+// connection partway through a huge upload. Checking client-side first also
+// means the rest of the form's answers survive too many/too-big photos
+// instead of the whole submit attempt failing.
+const MAX_TOTAL_PHOTO_BYTES = 65 * 1024 * 1024;
+const MAX_PHOTOS = 6; // keep in sync with MAX_SUBMISSION_PHOTOS in actions.ts
 
 function formatMB(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
+}
+
+function photoProblem(entries: FormDataEntryValue[]): string | null {
+  const photos = entries.filter((f): f is File => f instanceof File && f.size > 0);
+  if (photos.length > MAX_PHOTOS) {
+    return `You chose ${photos.length} photos -- please choose no more than ${MAX_PHOTOS} and try again. Everything else you entered is still here.`;
+  }
+  const total = photos.reduce((sum, f) => sum + f.size, 0);
+  if (total > MAX_TOTAL_PHOTO_BYTES) {
+    return `Those photos total ${formatMB(total)}MB, which is too large -- please choose photos totaling under ${formatMB(MAX_TOTAL_PHOTO_BYTES)}MB and try again. Everything else you entered is still here.`;
+  }
+  return null;
 }
 
 function PhotoSizeError({ message }: { message: string }) {
@@ -107,14 +120,18 @@ function InstagramAndCollabFields() {
 function PhotoField() {
   return (
     <div>
-      <label className={labelClasses}>Photo</label>
+      <label className={labelClasses}>Photos</label>
       <input
         type="file"
         name="photo"
         accept="image/*"
+        multiple
         required
         className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-dark"
       />
+      <p className="mt-1 text-xs text-zinc-500">
+        You can choose up to {MAX_PHOTOS} photos. The first one you pick is the main photo.
+      </p>
     </div>
   );
 }
@@ -143,12 +160,10 @@ function ArtistFields() {
   const formRef = useFormDraft(ARTIST_DRAFT_KEY);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    const photo = new FormData(e.currentTarget).get("photo");
-    if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) {
+    const problem = photoProblem(new FormData(e.currentTarget).getAll("photo"));
+    if (problem) {
       e.preventDefault();
-      setPhotoError(
-        `That photo is ${formatMB(photo.size)}MB, which is too large -- please choose one under ${formatMB(MAX_PHOTO_BYTES)}MB and try again. Everything else you entered is still here.`
-      );
+      setPhotoError(problem);
       return;
     }
     setPhotoError(null);
@@ -276,12 +291,10 @@ function OtherFields() {
   const formRef = useFormDraft(OTHER_DRAFT_KEY);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    const photo = new FormData(e.currentTarget).get("photo");
-    if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) {
+    const problem = photoProblem(new FormData(e.currentTarget).getAll("photo"));
+    if (problem) {
       e.preventDefault();
-      setPhotoError(
-        `That photo is ${formatMB(photo.size)}MB, which is too large -- please choose one under ${formatMB(MAX_PHOTO_BYTES)}MB and try again. Everything else you entered is still here.`
-      );
+      setPhotoError(problem);
       return;
     }
     setPhotoError(null);

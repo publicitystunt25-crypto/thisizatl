@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { insertPost, setPostImage, hasRecentSubmissionByArtist } from "@/lib/db";
+import { insertPost, setPostImage, addPostImages, hasRecentSubmissionByArtist } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { processImageUpload } from "@/lib/image";
 import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
@@ -29,6 +29,39 @@ function readCollaboratorUrls(formData: FormData): string[] {
     .map((v) => normalizeInstagramInput(String(v)))
     .filter((v): v is string => !!v)
     .slice(0, 5);
+}
+
+// Keeps the whole upload under the server's 75MB body limit and 512MB of RAM.
+const MAX_SUBMISSION_PHOTOS = 6;
+
+// The first photo is the article's main image; any others go into its
+// gallery, same as the writer area.
+function readPhotos(formData: FormData): File[] {
+  const photos = formData.getAll("photo").filter((f): f is File => f instanceof File && f.size > 0);
+  if (photos.length === 0) {
+    throw new Error("A photo is required");
+  }
+  if (photos.length > MAX_SUBMISSION_PHOTOS) {
+    throw new Error(`Please upload no more than ${MAX_SUBMISSION_PHOTOS} photos`);
+  }
+  if (photos.some((p) => !p.type.startsWith("image/"))) {
+    throw new Error("Uploaded file is not an image");
+  }
+  return photos;
+}
+
+// One photo at a time, so peak memory stays near a single photo's worth --
+// see processAndSaveNewPhotos in the writer actions for why that matters.
+async function saveSubmissionPhotos(postId: number, photos: File[], credit: string): Promise<void> {
+  for (let i = 0; i < photos.length; i++) {
+    const raw = Buffer.from(await photos[i].arrayBuffer());
+    const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600, i === 0);
+    if (i === 0) {
+      await setPostImage(postId, buffer, mime, `/api/uploads/${postId}`, credit, { width, height }, focus);
+    } else {
+      await addPostImages(postId, [{ data: buffer, mime, credit }]);
+    }
+  }
 }
 
 export async function submitArtistAction(formData: FormData): Promise<void> {
@@ -70,13 +103,7 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
 
   const submitterEmail = required(formData, "submitterEmail");
 
-  const photo = formData.get("photo");
-  if (!(photo instanceof File) || photo.size === 0) {
-    throw new Error("A photo is required");
-  }
-  if (!photo.type.startsWith("image/")) {
-    throw new Error("Uploaded file is not an image");
-  }
+  const photos = readPhotos(formData);
 
   // Guards against someone hitting back/reload and resubmitting a fresh page
   // -- a disabled submit button can't catch that since it's a brand new page
@@ -116,9 +143,7 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
     submitter_email: submitterEmail,
   });
 
-  const raw = Buffer.from(await photo.arrayBuffer());
-  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
-  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.artistName, { width, height }, focus);
+  await saveSubmissionPhotos(id, photos, submission.artistName);
 
   try {
     await sendSubmissionNotification(submission, id, collaboratorUrls);
@@ -168,13 +193,7 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
 
   const submitterEmail = required(formData, "submitterEmail");
 
-  const photo = formData.get("photo");
-  if (!(photo instanceof File) || photo.size === 0) {
-    throw new Error("A photo is required");
-  }
-  if (!photo.type.startsWith("image/")) {
-    throw new Error("Uploaded file is not an image");
-  }
+  const photos = readPhotos(formData);
 
   // Same duplicate-submission guard as the artist path, keyed by name.
   if (await hasRecentSubmissionByArtist(submission.name)) {
@@ -210,9 +229,7 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
     submitter_email: submitterEmail,
   });
 
-  const raw = Buffer.from(await photo.arrayBuffer());
-  const { buffer, mime, width, height, focus } = await processImageUpload(raw, 1600);
-  await setPostImage(id, buffer, mime, `/api/uploads/${id}`, submission.name, { width, height }, focus);
+  await saveSubmissionPhotos(id, photos, submission.name);
 
   try {
     await sendOtherSubmissionNotification(submission, id, collaboratorUrls);
