@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getPostByReviewToken, recordReviewResponse, schedulePost, type Post } from "@/lib/db";
+import { getPostByReviewToken, recordReviewResponse, schedulePost, addReviewPhoto, type Post } from "@/lib/db";
+import { processImageUpload } from "@/lib/image";
 import { publishPostNow } from "@/lib/publishPost";
 import { sendReviewResponseNotification } from "@/lib/email";
 import { formatDateTime, fromEasternDatetimeLocalValue } from "@/lib/date";
@@ -13,6 +14,7 @@ import { formatDateTime, fromEasternDatetimeLocalValue } from "@/lib/date";
 // tab or a double click can't publish twice or override an earlier choice.
 const MIN_LEAD_MINUTES = 10;
 const MAX_SCHEDULE_DAYS = 60;
+const MAX_REVIEW_PHOTOS = 5;
 
 async function awaitingPost(token: string): Promise<Post | null> {
   const post = await getPostByReviewToken(token);
@@ -82,8 +84,24 @@ export async function requestChangesAction(token: string, formData: FormData): P
   if (post) {
     const note = String(formData.get("note") || "").replace(/\r\n/g, "\n").trim().slice(0, 2000);
     if (note.length < 3) redirect(`/review/${token}?error=note`);
+    const photos = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+    if (photos.length > MAX_REVIEW_PHOTOS) redirect(`/review/${token}?error=photos`);
+    if (photos.some((p) => !p.type.startsWith("image/"))) redirect(`/review/${token}?error=photoType`);
+    // One at a time to keep memory near a single photo's worth; an unreadable
+    // photo is skipped rather than losing the whole request.
+    let saved = 0;
+    for (const photo of photos) {
+      try {
+        const { buffer, mime } = await processImageUpload(Buffer.from(await photo.arrayBuffer()), 1600, false);
+        await addReviewPhoto(post.id, buffer, mime);
+        saved++;
+      } catch (err) {
+        console.error("Review photo skipped:", err);
+      }
+    }
+    const detail = saved > 0 ? `${note}\n\n[They attached ${saved} replacement photo${saved === 1 ? "" : "s"} -- see the row in the admin.]` : note;
     await recordReviewResponse(post.id, "changes_requested", note);
-    await tellNewsroom(post, "changes_requested", note);
+    await tellNewsroom(post, "changes_requested", detail);
   }
   done(token);
 }

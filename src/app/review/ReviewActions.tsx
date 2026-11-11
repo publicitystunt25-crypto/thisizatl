@@ -129,6 +129,19 @@ export default function ReviewActions({
                 We&rsquo;ll make the edits and email you a new link to review. Nothing goes live until you approve.
               </p>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-700">
+                Change the photo <span className="font-normal text-zinc-400">(optional)</span>
+              </label>
+              <input
+                type="file"
+                name="photos"
+                accept="image/*"
+                multiple
+                className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:cursor-pointer file:rounded-full file:border file:border-zinc-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-50"
+              />
+              <p className="mt-1 text-xs text-zinc-500">Choose a new photo to use instead (up to 5).</p>
+            </div>
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setOpen(null)} className="text-sm text-zinc-500 hover:text-zinc-800">
                 Cancel

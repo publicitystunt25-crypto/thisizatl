@@ -140,6 +140,14 @@ function ensureInit(): Promise<void> {
         image_mime TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS review_photos (
+        id SERIAL PRIMARY KEY,
+        post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+        image_data BYTEA NOT NULL,
+        image_mime TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
     `).then(() => undefined);
   }
   return initialized;
@@ -660,6 +668,35 @@ export async function getCoverageRequestImage(id: number): Promise<{ data: Buffe
   await ensureInit();
   const res = await pool.query<{ image_data: Buffer; image_mime: string }>(
     `SELECT image_data, image_mime FROM coverage_request_images WHERE id = $1`,
+    [id]
+  );
+  const row = res.rows[0];
+  return row ? { data: row.image_data, mime: row.image_mime } : undefined;
+}
+
+// Replacement photos a submitter sends with a change request. Kept apart from
+// post_images so nothing reaches the live article until an admin uses it.
+export async function addReviewPhoto(postId: number, data: Buffer, mime: string): Promise<void> {
+  await ensureInit();
+  await pool.query(`INSERT INTO review_photos (post_id, image_data, image_mime) VALUES ($1, $2, $3)`, [
+    postId,
+    data,
+    mime,
+  ]);
+}
+
+export async function listReviewPhotoIds(): Promise<Record<number, number[]>> {
+  await ensureInit();
+  const res = await pool.query<{ id: number; post_id: number }>(`SELECT id, post_id FROM review_photos ORDER BY id`);
+  const byPost: Record<number, number[]> = {};
+  for (const row of res.rows) (byPost[row.post_id] ??= []).push(row.id);
+  return byPost;
+}
+
+export async function getReviewPhoto(id: number): Promise<{ data: Buffer; mime: string } | undefined> {
+  await ensureInit();
+  const res = await pool.query<{ image_data: Buffer; image_mime: string }>(
+    `SELECT image_data, image_mime FROM review_photos WHERE id = $1`,
     [id]
   );
   const row = res.rows[0];

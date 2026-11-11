@@ -4,6 +4,7 @@ import {
   getAllPostsAdmin,
   countPendingVideoSubmissions,
   countNewCoverageRequests,
+  listReviewPhotoIds,
   type Post,
 } from "@/lib/db";
 import { formatShortDateTime, formatDateTime, toEasternDatetimeLocalValue } from "@/lib/date";
@@ -29,10 +30,13 @@ export const dynamic = "force-dynamic";
 function PostRow({
   post,
   pending,
+  photoIds,
 }: {
   post: Post;
   pending: boolean;
+  photoIds: number[];
 }) {
+  const reviewPhotoIds = photoIds;
   return (
     <div
       className="rounded-lg border border-zinc-200 bg-white p-4"
@@ -91,6 +95,16 @@ function PostRow({
           <p className="mt-2 whitespace-pre-wrap rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
             <span className="font-medium">Their requested changes:</span> {post.review_note}
           </p>
+        )}
+        {post.review_status === "changes_requested" && reviewPhotoIds.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {reviewPhotoIds.map((pid) => (
+              <a key={pid} href={`/admin/review-photo/${pid}`} target="_blank" title="New photo they sent -- click to open">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/admin/review-photo/${pid}`} alt="Photo they sent" className="h-16 w-16 rounded-lg object-cover" />
+              </a>
+            ))}
+          </div>
         )}
         <p className="text-xs text-zinc-400">
           {formatShortDateTime(post.created_at)}
@@ -301,6 +315,7 @@ export default async function AdminDashboard() {
   const posts = await getAllPostsAdmin();
   const pendingClips = await countPendingVideoSubmissions();
   const newRequests = await countNewCoverageRequests();
+  const reviewPhotos = await listReviewPhotoIds();
   const pending = posts.filter((p) => p.status === "draft" || p.status === "scheduled");
   const rest = posts.filter((p) => p.status === "published");
 
@@ -365,7 +380,7 @@ export default async function AdminDashboard() {
               </h2>
               <div className="space-y-3">
                 {pending.map((post) => (
-                  <PostRow key={post.id} post={post} pending />
+                  <PostRow key={post.id} post={post} pending photoIds={reviewPhotos[post.id] ?? []} />
                 ))}
               </div>
             </aside>
@@ -376,7 +391,7 @@ export default async function AdminDashboard() {
               <p className="text-sm text-zinc-500">No posts yet.</p>
             )}
             {rest.map((post) => (
-              <PostRow key={post.id} post={post} pending={false} />
+              <PostRow key={post.id} post={post} pending={false} photoIds={[]} />
             ))}
           </div>
         </div>

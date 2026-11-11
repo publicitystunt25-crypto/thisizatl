@@ -19,6 +19,8 @@ export const metadata: Metadata = {
 const ERRORS: Record<string, string> = {
   time: "That time didn't work -- please pick a time at least 10 minutes from now and within the next 60 days.",
   note: "Please write what you'd like changed before sending.",
+  photos: "Please attach no more than 5 photos.",
+  photoType: "Only image files can be attached as photos.",
 };
 
 // The private page behind the "Your feature is ready" email. The secret token
