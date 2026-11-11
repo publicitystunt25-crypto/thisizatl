@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runPipeline, publishDueScheduledPosts } from "@/lib/pipeline";
+import { sendDueRevisionEmails } from "@/lib/reviewRevision";
 
 export async function POST() {
   let publishedScheduled: { id: number; title: string }[] = [];
@@ -7,6 +8,12 @@ export async function POST() {
     publishedScheduled = await publishDueScheduledPosts();
   } catch (err) {
     console.error("Publishing scheduled posts failed:", err);
+  }
+
+  try {
+    await sendDueRevisionEmails();
+  } catch (err) {
+    console.error("Revision email sweep failed:", err);
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {

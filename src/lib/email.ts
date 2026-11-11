@@ -187,6 +187,46 @@ Nothing goes live until you approve it -- you can publish it right away or pick 
   return true;
 }
 
+// Sent about 10 minutes after a change request, once the edits are in.
+export async function sendArticleUpdatedEmail(
+  to: string,
+  artistName: string,
+  title: string,
+  reviewUrl: string
+): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !to) return false;
+
+  const text = `Hey ${artistName},
+
+We made the changes you asked for. Please click the link to review, approve or request more changes to your article:
+
+"${title}"
+${reviewUrl}
+
+Nothing goes live until you approve it -- you can publish it right away or pick when it goes live. Please keep this link to yourself.
+
+-- ThisIzATL`;
+
+  const replyTo = process.env.SUBMISSION_NOTIFY_EMAIL;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      subject: "Your article has been updated",
+      text,
+    }),
+  });
+  if (!res.ok) {
+    console.error("Article updated email failed:", res.status, await res.text());
+    return false;
+  }
+  return true;
+}
+
 // Tells the newsroom what the submitter chose on the review page.
 export async function sendReviewResponseNotification(r: {
   postId: number;
@@ -194,6 +234,8 @@ export async function sendReviewResponseNotification(r: {
   submitterEmail: string | null;
   outcome: "live" | "scheduled" | "changes_requested";
   detail: string | null; // the scheduled time, or the change request
+  // For change requests: whether the edits were applied automatically.
+  autoUpdate?: "updated" | "manual";
 }): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.SUBMISSION_NOTIFY_EMAIL;
@@ -208,7 +250,9 @@ export async function sendReviewResponseNotification(r: {
         : "asked for changes";
   const body =
     r.outcome === "changes_requested"
-      ? `\nTheir message:\n${r.detail}\n\nMake the edits in the admin, then use "Send for approval" to email them a fresh review request.`
+      ? r.autoUpdate === "updated"
+        ? `\nTheir message:\n${r.detail}\n\nI already made these edits to the draft. They'll get an "Your article has been updated" email with a fresh review link in about 10 minutes. Check the draft in the admin if you'd like to look it over first.`
+        : `\nTheir message:\n${r.detail}\n\nI couldn't apply all of this automatically, so nothing was emailed to them. Make the edits in the admin, then use "Send for approval" to email them a fresh review request.`
       : r.outcome === "scheduled"
         ? "\nScheduled posts are published by the next scheduled run after that time, so it can go live a few hours later."
         : "\nIt's been posted to the site, the Facebook Page and the Instagram story. The IG feed post is still yours to send if you want one.";

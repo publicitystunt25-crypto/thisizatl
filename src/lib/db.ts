@@ -61,6 +61,7 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_status TEXT;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_note TEXT;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_responded_at TIMESTAMPTZ;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS revision_send_at TIMESTAMPTZ;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -185,7 +186,8 @@ export interface Post {
   preview_emailed_at: string | null;
   // The submitter's answer from the emailed review page: "awaiting" once the
   // link is sent, then "live", "scheduled" or "changes_requested".
-  review_status: "awaiting" | "live" | "scheduled" | "changes_requested" | null;
+  review_status: "awaiting" | "live" | "scheduled" | "changes_requested" | "revising" | null;
+  revision_send_at: string | null;
   review_note: string | null;
   review_responded_at: string | null;
 }
@@ -505,7 +507,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -677,6 +679,41 @@ export async function getCoverageRequestImage(id: number): Promise<{ data: Buffe
 
 // Replacement photos a submitter sends with a change request. Kept apart from
 // post_images so nothing reaches the live article until an admin uses it.
+export async function getReviewPhotos(
+  postId: number
+): Promise<{ id: number; kind: ReviewPhotoKind; data: Buffer; mime: string }[]> {
+  await ensureInit();
+  const res = await pool.query<{ id: number; kind: ReviewPhotoKind; image_data: Buffer; image_mime: string }>(
+    `SELECT id, kind, image_data, image_mime FROM review_photos WHERE post_id = $1 ORDER BY id`,
+    [postId]
+  );
+  return res.rows.map((r) => ({ id: r.id, kind: r.kind, data: r.image_data, mime: r.image_mime }));
+}
+
+export async function deleteReviewPhotos(ids: number[]): Promise<void> {
+  if (ids.length === 0) return;
+  await ensureInit();
+  await pool.query(`DELETE FROM review_photos WHERE id = ANY($1::int[])`, [ids]);
+}
+
+// The changes were applied to the article; the client gets the updated review
+// link once `sendAt` passes (see lib/reviewRevision.ts).
+export async function markRevising(id: number, sendAt: Date): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE posts SET review_status = 'revising', revision_send_at = $2 WHERE id = $1`, [id, sendAt]);
+}
+
+// Claims every revised article whose email is due, so two overlapping sweeps
+// (timer, cron, admin page) can't both send it.
+export async function claimDueRevisions(): Promise<number[]> {
+  await ensureInit();
+  const res = await pool.query<{ id: number }>(
+    `UPDATE posts SET review_status = 'awaiting', revision_send_at = NULL
+     WHERE review_status = 'revising' AND status = 'draft' AND revision_send_at <= now() RETURNING id`
+  );
+  return res.rows.map((r) => r.id);
+}
+
 export type ReviewPhotoKind = "main" | "extra";
 
 export async function addReviewPhoto(postId: number, data: Buffer, mime: string, kind: ReviewPhotoKind): Promise<void> {
@@ -870,7 +907,7 @@ export async function getPostsByAuthor(author: string): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at
      FROM posts WHERE id = $1`,
     [id]
   );

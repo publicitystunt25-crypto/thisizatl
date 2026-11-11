@@ -39,7 +39,8 @@ export default async function ReviewPage({
   if (!post) notFound();
 
   const galleryImages = await getPostImages(post.id);
-  const waiting = post.status === "draft" && post.review_status !== "changes_requested";
+  const waiting =
+    post.status === "draft" && post.review_status !== "changes_requested" && post.review_status !== "revising";
 
   const actions = waiting ? (
     <ReviewActions
@@ -73,6 +74,14 @@ export default async function ReviewPage({
               <p>
                 It will go live after {formatDateTime(post.scheduled_for)} Eastern. We publish scheduled articles a
                 few times a day, so it can go up a few hours after that time.
+              </p>
+            </div>
+          ) : post.review_status === "revising" ? (
+            <div className="space-y-2 text-sm text-zinc-700">
+              <p className="font-display text-lg font-bold text-amber-700">We&rsquo;re updating your article</p>
+              <p>
+                Thanks &mdash; your changes are in. We&rsquo;ll email you an updated link in about 10 minutes so you
+                can review it again. Nothing goes live until you approve.
               </p>
             </div>
           ) : post.review_status === "changes_requested" ? (

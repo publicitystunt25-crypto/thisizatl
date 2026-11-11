@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getPostByReviewToken, recordReviewResponse, schedulePost, addReviewPhoto, type Post } from "@/lib/db";
 import { processImageUpload } from "@/lib/image";
+import { applyReviewChanges, scheduleRevisionEmail } from "@/lib/reviewRevision";
 import { publishPostNow } from "@/lib/publishPost";
 import { sendReviewResponseNotification } from "@/lib/email";
 import { formatDateTime, fromEasternDatetimeLocalValue } from "@/lib/date";
@@ -19,14 +20,17 @@ const MAX_REVIEW_PHOTOS = 5;
 async function awaitingPost(token: string): Promise<Post | null> {
   const post = await getPostByReviewToken(token);
   if (!post) throw new Error("This review link isn't valid");
-  if (post.status !== "draft" || post.review_status === "changes_requested") return null;
+  if (post.status !== "draft" || post.review_status === "changes_requested" || post.review_status === "revising") {
+    return null;
+  }
   return post;
 }
 
 async function tellNewsroom(
   post: Post,
   outcome: "live" | "scheduled" | "changes_requested",
-  detail: string | null
+  detail: string | null,
+  autoUpdate?: "updated" | "manual"
 ): Promise<void> {
   try {
     await sendReviewResponseNotification({
@@ -35,6 +39,7 @@ async function tellNewsroom(
       submitterEmail: post.submitter_email,
       outcome,
       detail,
+      autoUpdate,
     });
   } catch (err) {
     console.error("Review response notification failed:", err);
@@ -110,7 +115,26 @@ export async function requestChangesAction(token: string, formData: FormData): P
     if (saved.extra) notes.push(`${saved.extra} extra photo${saved.extra === 1 ? "" : "s"} to add`);
     const detail = notes.length ? `${note}\n\n[They sent ${notes.join(" and ")} -- see the row in the admin.]` : note;
     await recordReviewResponse(post.id, "changes_requested", note);
-    await tellNewsroom(post, "changes_requested", detail);
+
+    // Make the edits now and email them the updated article in ~10 minutes. If
+    // anything can't be done automatically it stays "changes requested" for a
+    // person to finish, and nothing is emailed to the client.
+    let auto: "updated" | "manual" = "manual";
+    let extra = "";
+    try {
+      const result = await applyReviewChanges(post.id, note);
+      if (result.ok) {
+        await scheduleRevisionEmail(post.id);
+        auto = "updated";
+        extra = `\n\nWhat I changed: ${result.summary}`;
+      } else {
+        extra = `${result.summary ? `\n\nAlready done: ${result.summary}` : ""}\n\nNot done: ${result.reason}`;
+      }
+    } catch (err) {
+      console.error("Auto-applying review changes failed:", err);
+      extra = "\n\nThe automatic update hit an error.";
+    }
+    await tellNewsroom(post, "changes_requested", detail + extra, auto);
   }
   done(token);
 }

@@ -22,6 +22,7 @@ import {
   cancelScheduleAction,
   emailPreviewAction,
 } from "./actions";
+import { sendDueRevisionEmails } from "@/lib/reviewRevision";
 import ScheduleControl from "./ScheduleControl";
 import EmailPreviewButton from "./EmailPreviewButton";
 
@@ -78,6 +79,12 @@ function PostRow({
               Changes requested
             </span>
           )}
+          {post.status === "draft" && post.review_status === "revising" && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+              Updated &mdash; emailing them
+              {post.revision_send_at ? ` ${formatShortDateTime(post.revision_send_at)}` : ""}
+            </span>
+          )}
           {post.status === "scheduled" && post.review_status === "scheduled" && (
             <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
               Approved by submitter
@@ -91,7 +98,7 @@ function PostRow({
           )}
         </div>
         <p className="mt-1 font-medium text-ink">{post.title}</p>
-        {post.review_status === "changes_requested" && post.review_note && (
+        {(post.review_status === "changes_requested" || post.review_status === "revising") && post.review_note && (
           <p className="mt-2 whitespace-pre-wrap rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
             <span className="font-medium">Their requested changes:</span> {post.review_note}
           </p>
@@ -319,6 +326,8 @@ function PostRow({
 }
 
 export default async function AdminDashboard() {
+  // Backstop for the 10-minute "article updated" emails if the server restarted while one was waiting.
+  await sendDueRevisionEmails().catch((err) => console.error("Revision email sweep failed:", err));
   const posts = await getAllPostsAdmin();
   const pendingClips = await countPendingVideoSubmissions();
   const newRequests = await countNewCoverageRequests();
