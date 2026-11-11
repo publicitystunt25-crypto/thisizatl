@@ -44,3 +44,38 @@ export async function cropToFocus(
     .extract({ left, top, width: targetW, height: targetH })
     .toBuffer();
 }
+
+// Fits the whole photo inside targetW x targetH instead of cropping it, for tall
+// photos (like a collage) where a cover crop would cut off most of the picture.
+// The leftover space on the sides is filled with a blurred, darkened copy of the
+// same photo so it doesn't look like empty bars.
+export async function fitWholePhoto(imgBuffer: Buffer, targetW: number, targetH: number): Promise<Buffer> {
+  const background = await sharp(imgBuffer)
+    .resize(targetW, targetH, { fit: "cover" })
+    .blur(40)
+    .modulate({ brightness: 0.45 })
+    .toBuffer();
+  const photo = await sharp(imgBuffer)
+    .resize(targetW, targetH, { fit: "inside" })
+    .toBuffer();
+  const meta = await sharp(photo).metadata();
+  return sharp(background)
+    .composite([
+      {
+        input: photo,
+        left: Math.round((targetW - (meta.width || targetW)) / 2),
+        top: Math.round((targetH - (meta.height || targetH)) / 2),
+      },
+    ])
+    .jpeg({ quality: 92 })
+    .toBuffer();
+}
+
+// True when a cover crop to the target box would throw away this much or more
+// of a photo's height (e.g. a 4:5 collage squeezed into a wide box).
+export function coverCropLosesTooMuch(srcW: number, srcH: number, targetW: number, targetH: number, limit = 0.25): boolean {
+  const srcAspect = srcW / srcH;
+  const targetAspect = targetW / targetH;
+  if (srcAspect >= targetAspect) return false;
+  return 1 - srcAspect / targetAspect >= limit;
+}

@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { getPostById } from "@/lib/db";
-import { cropToFocus } from "@/lib/crop";
+import { cropToFocus, fitWholePhoto, coverCropLosesTooMuch } from "@/lib/crop";
 import { escapeXml, wrapText, fitsWithinLines } from "@/lib/textOverlay";
 
 const WIDTH = 1080;
@@ -61,7 +61,20 @@ export async function GET(
       : post.focus_x != null && post.focus_y != null
         ? { x: post.focus_x, y: post.focus_y }
         : null;
-  const photo = await cropToFocus(imgBuffer, WIDTH, PHOTO_HEIGHT, focus, zoom);
+  // Tall photos with no detected face (a collage, a full-length shot) would lose
+  // most of their height to a cover crop, so those are shrunk to fit whole.
+  // ?fit=cover or ?fit=contain forces one or the other.
+  const fitParam = searchParams.get("fit");
+  const srcMeta = await sharp(imgBuffer).metadata();
+  const shrinkToFit =
+    fitParam === "contain" ||
+    (fitParam !== "cover" &&
+      !focus &&
+      zoom === 1 &&
+      coverCropLosesTooMuch(srcMeta.width || WIDTH, srcMeta.height || PHOTO_HEIGHT, WIDTH, PHOTO_HEIGHT));
+  const photo = shrinkToFit
+    ? await fitWholePhoto(imgBuffer, WIDTH, PHOTO_HEIGHT)
+    : await cropToFocus(imgBuffer, WIDTH, PHOTO_HEIGHT, focus, zoom);
 
   // The headline gets the biggest font that still fits. For each size from
   // large to small this works out how many characters fit across a line, wraps
@@ -112,7 +125,9 @@ export async function GET(
   // styling), not re-rendered text -- guarantees the exact font/gradient
   // instead of an approximation. Only used small in the corner; the logo
   // mark alone carries the brand in the main block below the photo.
-  const wordmarkCornerWidth = 220;
+  // When the photo is shrunk to fit, the wordmark sits in the side margin instead of over the picture.
+  const wordmarkCornerWidth = shrinkToFit ? 150 : 220;
+  const wordmarkRight = shrinkToFit ? 20 : 40;
   const wordmarkCorner = await sharp(wordmarkBuffer).resize({ width: wordmarkCornerWidth }).toBuffer();
 
   // Caption text first, logo mark below it -- both centered together within
@@ -148,7 +163,7 @@ export async function GET(
       {
         input: wordmarkCorner,
         top: 30,
-        left: WIDTH - 40 - wordmarkCornerWidth,
+        left: WIDTH - wordmarkRight - wordmarkCornerWidth,
       },
       { input: logo, top: Math.round(logoTop), left: Math.round(WIDTH / 2 - logoSize / 2) },
       { input: Buffer.from(overlaySvg), top: 0, left: 0 },
