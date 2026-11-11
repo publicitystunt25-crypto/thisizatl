@@ -270,8 +270,33 @@ export function extractUntaggableUsername(errorText: string): string | null {
 // status_code reaches FINISHED fails with a transient "not ready" error.
 // Gives up after ~20s (image fetch/processing is normally sub-second to a
 // few seconds) so a stuck container can't hang the whole share indefinitely.
+// Instagram answers "media is not ready" (subcode 2207027) until it has
+// finished fetching and processing the image -- which can take a while for the
+// composited feed image. Retry that specific answer instead of failing the post.
+async function publishContainer(
+  igUserId: string,
+  creationId: string,
+  token: string,
+  label: string
+): Promise<Response> {
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    res = await fetch(`${GRAPH_BASE}/${igUserId}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creation_id: creationId, access_token: token }),
+    });
+    if (res.ok) return res;
+    const body = await res.clone().text();
+    if (!body.includes("2207027")) break;
+    console.error(`Instagram ${label} not ready yet (attempt ${attempt + 1}), waiting to retry`);
+    await sleep(6000);
+  }
+  return res as Response;
+}
+
 async function waitForContainerReady(creationId: string, token: string): Promise<void> {
-  const deadline = Date.now() + 20000;
+  const deadline = Date.now() + 45000;
   while (Date.now() < deadline) {
     const res = await fetch(
       `${GRAPH_BASE}/${creationId}?fields=status_code&access_token=${token}`
@@ -324,14 +349,7 @@ export async function postToInstagramStory(post: SocialPost): Promise<void> {
   // Poll status_code until it's FINISHED (or ERROR/timeout) before publishing.
   await waitForContainerReady(creationId, token);
 
-  const publishRes = await fetch(`${GRAPH_BASE}/${igUserId}/media_publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      creation_id: creationId,
-      access_token: token,
-    }),
-  });
+  const publishRes = await publishContainer(igUserId, creationId, token, "story");
 
   if (!publishRes.ok) {
     const body = await publishRes.text();
@@ -406,11 +424,7 @@ export async function postToInstagramFeed(
   const { id: creationId } = result;
   await waitForContainerReady(creationId, token);
 
-  const publishRes = await fetch(`${GRAPH_BASE}/${igUserId}/media_publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ creation_id: creationId, access_token: token }),
-  });
+  const publishRes = await publishContainer(igUserId, creationId, token, "feed post");
 
   if (!publishRes.ok) {
     const body = await publishRes.text();
@@ -574,4 +588,36 @@ export async function shareNewPost(post: SocialPost): Promise<ShareResult> {
   }
 
   return { ok, fbPostId };
+}
+
+// The handles to tag and invite for a post. If the submitter confirmed their
+// own list when approving, that wins; otherwise it's whatever the article's
+// links say.
+export function resolveInstagramHandles(post: { sources: string; collab_handles?: string | null }): {
+  instagramHandle: string | null;
+  collaboratorHandles: string[];
+} {
+  if (post.collab_handles != null) {
+    try {
+      const list = (JSON.parse(post.collab_handles) as unknown[]).filter((h): h is string => typeof h === "string");
+      return { instagramHandle: list[0] ?? null, collaboratorHandles: list.slice(1) };
+    } catch {
+      // unreadable -- fall through to the article's links
+    }
+  }
+  return getInstagramHandlesFromSources(post.sources);
+}
+
+// Turns what a person typed ("@a, b  https://instagram.com/c") into clean,
+// de-duplicated handles. Instagram allows at most 3 collaborators per post.
+export function parseHandleList(raw: string): string[] {
+  const handles: string[] = [];
+  for (const token of raw.split(/[\s,;]+/).filter(Boolean)) {
+    const fromUrl = /^https?:\/\//i.test(token) || /instagram\.com/i.test(token)
+      ? extractInstagramHandle(token.startsWith("http") ? token : `https://${token}`)
+      : null;
+    const handle = (fromUrl ?? token.replace(/^@/, "")).toLowerCase();
+    if (/^[a-z0-9._]{1,30}$/.test(handle) && !handles.includes(handle)) handles.push(handle);
+  }
+  return handles.slice(0, 3);
 }

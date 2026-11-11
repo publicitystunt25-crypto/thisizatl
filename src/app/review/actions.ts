@@ -2,7 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getPostByReviewToken, recordReviewResponse, schedulePost, addReviewPhoto, type Post } from "@/lib/db";
+import {
+  getPostByReviewToken,
+  recordReviewResponse,
+  schedulePost,
+  addReviewPhoto,
+  setCollabHandles,
+  type Post,
+} from "@/lib/db";
+import { parseHandleList } from "@/lib/social";
 import { processImageUpload } from "@/lib/image";
 import { applyReviewChanges, scheduleRevisionEmail } from "@/lib/reviewRevision";
 import { publishPostNow } from "@/lib/publishPost";
@@ -46,22 +54,34 @@ async function tellNewsroom(
   }
 }
 
+// The Instagram accounts they confirmed on the approve pop-up. Saved on the
+// post so the feed post invites exactly these; returns a line for the newsroom email.
+async function saveCollabs(post: Post, formData: FormData): Promise<string> {
+  const handles = parseHandleList(String(formData.get("collabs") || ""));
+  await setCollabHandles(post.id, handles);
+  return handles.length ? `Instagram collaborations: ${handles.map((h) => "@" + h).join(", ")}` : "Instagram collaborations: none";
+}
+
 function done(token: string): never {
   revalidatePath("/admin");
   revalidatePath(`/review/${token}`);
   redirect(`/review/${token}`);
 }
 
-export async function goLiveNowAction(token: string): Promise<void> {
+export async function goLiveNowAction(token: string, formData: FormData): Promise<void> {
   const post = await awaitingPost(token);
-  if (post?.hold_after_approval) {
-    // Approved, but the newsroom asked to be told first rather than publishing.
-    await recordReviewResponse(post.id, "approved", "Wants it to go live right away");
-    await tellNewsroom(post, "approved", "They chose: go live right away.");
-  } else if (post) {
-    await publishPostNow(post.id);
-    await recordReviewResponse(post.id, "live", null);
-    await tellNewsroom(post, "live", null);
+  if (post) {
+    const collabLine = await saveCollabs(post, formData);
+    if (post.hold_after_approval) {
+      // Approved, but the newsroom asked to be told first rather than publishing.
+      await recordReviewResponse(post.id, "approved", "Wants it to go live right away");
+      await tellNewsroom(post, "approved", `They chose: go live right away.
+${collabLine}`);
+    } else {
+      await publishPostNow(post.id);
+      await recordReviewResponse(post.id, "live", null);
+      await tellNewsroom(post, "live", collabLine);
+    }
   }
   done(token);
 }
@@ -81,13 +101,16 @@ export async function scheduleAction(token: string, formData: FormData): Promise
     }
     const iso = new Date(when).toISOString();
     const label = `${formatDateTime(iso)} Eastern`;
+    const collabLine = await saveCollabs(post, formData);
     if (post.hold_after_approval) {
       await recordReviewResponse(post.id, "approved", `Wants it to go live ${label}`);
-      await tellNewsroom(post, "approved", `They chose: go live ${label}.`);
+      await tellNewsroom(post, "approved", `They chose: go live ${label}.
+${collabLine}`);
     } else {
       await schedulePost(post.id, iso);
       await recordReviewResponse(post.id, "scheduled", label);
-      await tellNewsroom(post, "scheduled", label);
+      await tellNewsroom(post, "scheduled", `${label}
+${collabLine}`);
     }
   }
   done(token);

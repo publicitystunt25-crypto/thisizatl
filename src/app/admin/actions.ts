@@ -36,8 +36,7 @@ import { CATEGORIES } from "@/lib/categories";
 import {
   shareNewPost,
   postToInstagramFeed,
-  extractInstagramHandle,
-  getInstagramHandlesFromSources,
+  resolveInstagramHandles,
   deleteFacebookPost,
 } from "@/lib/social";
 import { generateFeedCaption } from "@/lib/generate";
@@ -286,7 +285,7 @@ export async function acceptAllAction(id: number): Promise<void> {
   const post = await getPostById(id);
   if (!post) throw new Error("Post not found");
 
-  const { instagramHandle, collaboratorHandles } = getInstagramHandlesFromSources(post.sources);
+  const { instagramHandle, collaboratorHandles } = resolveInstagramHandles(post);
 
   if (post.status !== "published") {
     await updatePost(id, {
@@ -368,15 +367,7 @@ export async function retrySocialShareAction(id: number): Promise<void> {
   const post = await getPostById(id);
   if (!post) throw new Error("Post not found");
 
-  let instagramHandle: string | null = null;
-  try {
-    const sources = JSON.parse(post.sources) as { source: string; url: string }[];
-    const igSource = sources.find((s) => s.source === "Instagram");
-    instagramHandle = extractInstagramHandle(igSource?.url);
-  } catch {
-    // sources isn't valid JSON or doesn't include an Instagram entry -- fine,
-    // just means no tag gets attached.
-  }
+  const { instagramHandle } = resolveInstagramHandles(post);
 
   const result = await shareNewPost({
     id: post.id,

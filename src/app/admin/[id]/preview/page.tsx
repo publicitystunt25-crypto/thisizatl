@@ -6,6 +6,7 @@ import SiteFooter from "@/components/SiteFooter";
 import DraftArticleBody from "@/components/DraftArticleBody";
 import InstagramPostPreview from "@/components/InstagramPostPreview";
 import ReviewActions from "@/app/review/ReviewActions";
+import { resolveInstagramHandles } from "@/lib/social";
 import { toEasternDatetimeLocalValue } from "@/lib/date";
 import { demoGoLive, demoSchedule, demoRequestChanges } from "./demoActions";
 
@@ -24,6 +25,11 @@ export default async function AdminPostPreviewPage({
   if (!post) notFound();
 
   const galleryImages = await getPostImages(post.id);
+  const planned = resolveInstagramHandles(post);
+  const defaultHandles = [planned.instagramHandle, ...planned.collaboratorHandles]
+    .filter((h): h is string => !!h)
+    .map((h) => `@${h}`)
+    .join(", ");
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -48,6 +54,7 @@ export default async function AdminPostPreviewPage({
               </div>
               <ReviewActions
                 minValue={toEasternDatetimeLocalValue(new Date().toISOString())}
+                defaultHandles={defaultHandles}
                 goLive={demoGoLive}
                 schedule={demoSchedule}
                 requestChanges={demoRequestChanges}

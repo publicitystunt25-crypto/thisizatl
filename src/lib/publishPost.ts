@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { clearSchedule, getPostById, setSocialShared, updatePost } from "./db";
 import { sendArticleLiveNotification } from "./email";
-import { extractInstagramHandle, shareNewPost } from "./social";
+import { resolveInstagramHandles, shareNewPost } from "./social";
 
 // Publishes a draft or scheduled post: marks it live, shares it to the
 // Facebook Page and as an Instagram story, and emails the submitter that it's
@@ -25,15 +25,7 @@ export async function publishPostNow(id: number): Promise<void> {
     status: "published",
   });
 
-  let instagramHandle: string | null = null;
-  try {
-    const sources = JSON.parse(post.sources) as { source: string; url: string }[];
-    const igSource = sources.find((s) => s.source === "Instagram");
-    instagramHandle = extractInstagramHandle(igSource?.url);
-  } catch {
-    // sources isn't valid JSON or doesn't include an Instagram entry -- fine,
-    // just means no tag gets attached.
-  }
+  const { instagramHandle } = resolveInstagramHandles(post);
 
   const result = await shareNewPost({
     id: post.id,

@@ -46,33 +46,55 @@ const inputClasses =
 const fileClasses =
   "mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:cursor-pointer file:rounded-full file:border file:border-zinc-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-50";
 
+function CollabField({ defaultHandles }: { defaultHandles: string }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-zinc-700">Instagram collaborations</label>
+      <input
+        type="text"
+        name="collabs"
+        defaultValue={defaultHandles}
+        placeholder="@handle, @another"
+        autoCapitalize="none"
+        autoCorrect="off"
+        className={inputClasses}
+      />
+      <p className="mt-1 text-xs text-zinc-500">
+        Which Instagram pages should we invite to collaborate on the post? Add up to 3, separated by commas, or
+        clear this to skip collaborations.
+      </p>
+    </div>
+  );
+}
+
 // The three choices on the emailed review page. The popups are where they pick
 // a time or type the changes they want; nothing is sent until they confirm.
 export default function ReviewActions({
   minValue,
+  defaultHandles,
   goLive,
   schedule,
   requestChanges,
 }: {
   minValue: string;
-  goLive: () => Promise<void>;
+  // Instagram accounts we'd planned to collaborate with, prefilled for them to confirm.
+  defaultHandles: string;
+  goLive: (formData: FormData) => Promise<void>;
   schedule: (formData: FormData) => Promise<void>;
   requestChanges: (formData: FormData) => Promise<void>;
 }) {
-  const [open, setOpen] = useState<"schedule" | "changes" | null>(null);
+  const [open, setOpen] = useState<"live" | "schedule" | "changes" | null>(null);
 
   return (
     <>
       <div className="grid gap-3 sm:grid-cols-3">
-        <form action={goLive}>
-          <SubmitButton
-            pendingLabel="Publishing…"
-            confirmMessage="This publishes your article on ThisIzATL and our Facebook and Instagram story right now. Go live?"
-            className="w-full rounded-full bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700"
-          >
-            Approve &amp; Go Live Now
-          </SubmitButton>
-        </form>
+        <button
+          type="button"
+          onClick={() => setOpen("live")}
+          className="rounded-full bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700"
+        >
+          Approve &amp; Go Live Now
+        </button>
         <button
           type="button"
           onClick={() => setOpen("schedule")}
@@ -89,6 +111,28 @@ export default function ReviewActions({
         </button>
       </div>
 
+      {open === "live" && (
+        <Modal title="Go live now" onClose={() => setOpen(null)}>
+          <form action={goLive} className="mt-4 space-y-4">
+            <CollabField defaultHandles={defaultHandles} />
+            <p className="text-xs text-zinc-500">
+              This publishes your article on ThisIzATL and our Facebook and Instagram right away.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setOpen(null)} className="text-sm text-zinc-500 hover:text-zinc-800">
+                Cancel
+              </button>
+              <SubmitButton
+                pendingLabel="Publishing…"
+                className="rounded-full bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                Go Live Now
+              </SubmitButton>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {open === "schedule" && (
         <Modal title="When should it go live?" onClose={() => setOpen(null)}>
           <form action={schedule} className="mt-4 space-y-4">
@@ -100,6 +144,7 @@ export default function ReviewActions({
                 time &mdash; it can be a few hours later.
               </p>
             </div>
+            <CollabField defaultHandles={defaultHandles} />
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setOpen(null)} className="text-sm text-zinc-500 hover:text-zinc-800">
                 Cancel

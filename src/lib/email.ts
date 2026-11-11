@@ -246,7 +246,7 @@ export async function sendReviewResponseNotification(r: {
     r.outcome === "live"
       ? "approved it and published it right away"
       : r.outcome === "scheduled"
-        ? `approved it and scheduled it for ${r.detail}`
+        ? `approved it and scheduled it for ${r.detail?.split("\n")[0]}`
         : r.outcome === "approved"
           ? "approved it -- NOTHING has been posted or scheduled"
           : "asked for changes";
@@ -258,8 +258,8 @@ export async function sendReviewResponseNotification(r: {
       : r.outcome === "approved"
         ? `\n${r.detail}\n\nYou asked me not to post this one -- it is still a draft and nothing has gone out. Publish or schedule it from the admin when you are ready.`
       : r.outcome === "scheduled"
-        ? "\nScheduled posts are published by the next scheduled run after that time, so it can go live a few hours later."
-        : "\nIt's been posted to the site, the Facebook Page and the Instagram story. The IG feed post is still yours to send if you want one.";
+        ? `\n${r.detail?.split("\n").slice(1).join("\n") ?? ""}\n\nScheduled posts are published by the next scheduled run after that time, so it can go live a few hours later.`
+        : `\n${r.detail ?? ""}\n\nIt's been posted to the site, the Facebook Page and the Instagram story. The IG feed post is still yours to send; it will invite the accounts above.`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

@@ -6,6 +6,7 @@ import { formatDateTime, toEasternDatetimeLocalValue } from "@/lib/date";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import DraftArticleBody from "@/components/DraftArticleBody";
+import { resolveInstagramHandles } from "@/lib/social";
 import ReviewActions from "../ReviewActions";
 import { goLiveNowAction, requestChangesAction, scheduleAction } from "../actions";
 
@@ -39,6 +40,11 @@ export default async function ReviewPage({
   if (!post) notFound();
 
   const galleryImages = await getPostImages(post.id);
+  const planned = resolveInstagramHandles(post);
+  const defaultHandles = [planned.instagramHandle, ...planned.collaboratorHandles]
+    .filter((h): h is string => !!h)
+    .map((h) => `@${h}`)
+    .join(", ");
   const waiting =
     post.status === "draft" && post.review_status !== "changes_requested" &&
     post.review_status !== "revising" &&
@@ -47,6 +53,7 @@ export default async function ReviewPage({
   const actions = waiting ? (
     <ReviewActions
       minValue={toEasternDatetimeLocalValue(new Date().toISOString())}
+      defaultHandles={defaultHandles}
       goLive={goLiveNowAction.bind(null, token)}
       schedule={scheduleAction.bind(null, token)}
       requestChanges={requestChangesAction.bind(null, token)}
@@ -116,6 +123,21 @@ export default async function ReviewPage({
         </section>
 
         <DraftArticleBody post={post} galleryImages={galleryImages} />
+
+        {post.image_url && (
+          <section className="mt-10 rounded-xl border border-zinc-200 bg-white p-5">
+            <h2 className="font-display text-lg font-bold text-ink">Your Instagram version</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              This is the post we&rsquo;ll share on Instagram when your article goes live.
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/feed-image/${post.id}?t=${post.review_responded_at ?? post.preview_emailed_at ?? ""}`}
+              alt="Instagram post preview"
+              className="mt-4 w-full max-w-sm rounded-lg border border-zinc-200"
+            />
+          </section>
+        )}
 
         {waiting && <section className="mt-10 rounded-xl border border-zinc-200 bg-white p-5">{actions}</section>}
       </main>

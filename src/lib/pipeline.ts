@@ -3,7 +3,7 @@ import { resolveGoogleNewsLink, extractArticleText } from "./extract";
 import { generateArticle, SourceInput } from "./generate";
 import { checkDuplicate } from "./dedup";
 import { fetchStockPhoto } from "./image";
-import { shareNewPost, extractInstagramHandle } from "./social";
+import { shareNewPost, resolveInstagramHandles } from "./social";
 import { sendArticleLiveNotification } from "./email";
 import {
   hasSeenLink,
@@ -217,14 +217,7 @@ export async function publishDueScheduledPosts(): Promise<{ id: number; title: s
   for (const post of due) {
     await markPublishedFromSchedule(post.id);
 
-    let instagramHandle: string | null = null;
-    try {
-      const sources = JSON.parse(post.sources) as { source: string; url: string }[];
-      const igSource = sources.find((s) => s.source === "Instagram");
-      instagramHandle = extractInstagramHandle(igSource?.url);
-    } catch {
-      // sources isn't valid JSON or doesn't include an Instagram entry -- fine.
-    }
+    const { instagramHandle } = resolveInstagramHandles(post);
 
     const result = await shareNewPost({
       id: post.id,
