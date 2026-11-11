@@ -84,22 +84,31 @@ export async function requestChangesAction(token: string, formData: FormData): P
   if (post) {
     const note = String(formData.get("note") || "").replace(/\r\n/g, "\n").trim().slice(0, 2000);
     if (note.length < 3) redirect(`/review/${token}?error=note`);
-    const photos = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
-    if (photos.length > MAX_REVIEW_PHOTOS) redirect(`/review/${token}?error=photos`);
-    if (photos.some((p) => !p.type.startsWith("image/"))) redirect(`/review/${token}?error=photoType`);
+    const isFile = (f: FormDataEntryValue): f is File => f instanceof File && f.size > 0;
+    const mainPhotos = formData.getAll("mainPhoto").filter(isFile).slice(0, 1);
+    const extraPhotos = formData.getAll("photos").filter(isFile);
+    if (extraPhotos.length > MAX_REVIEW_PHOTOS) redirect(`/review/${token}?error=photos`);
+    if ([...mainPhotos, ...extraPhotos].some((p) => !p.type.startsWith("image/"))) {
+      redirect(`/review/${token}?error=photoType`);
+    }
     // One at a time to keep memory near a single photo's worth; an unreadable
     // photo is skipped rather than losing the whole request.
-    let saved = 0;
-    for (const photo of photos) {
-      try {
-        const { buffer, mime } = await processImageUpload(Buffer.from(await photo.arrayBuffer()), 1600, false);
-        await addReviewPhoto(post.id, buffer, mime);
-        saved++;
-      } catch (err) {
-        console.error("Review photo skipped:", err);
+    const saved = { main: 0, extra: 0 };
+    for (const [kind, list] of [["main", mainPhotos], ["extra", extraPhotos]] as const) {
+      for (const photo of list) {
+        try {
+          const { buffer, mime } = await processImageUpload(Buffer.from(await photo.arrayBuffer()), 1600, false);
+          await addReviewPhoto(post.id, buffer, mime, kind);
+          saved[kind]++;
+        } catch (err) {
+          console.error("Review photo skipped:", err);
+        }
       }
     }
-    const detail = saved > 0 ? `${note}\n\n[They attached ${saved} replacement photo${saved === 1 ? "" : "s"} -- see the row in the admin.]` : note;
+    const notes: string[] = [];
+    if (saved.main) notes.push("a new MAIN photo to replace the current one");
+    if (saved.extra) notes.push(`${saved.extra} extra photo${saved.extra === 1 ? "" : "s"} to add`);
+    const detail = notes.length ? `${note}\n\n[They sent ${notes.join(" and ")} -- see the row in the admin.]` : note;
     await recordReviewResponse(post.id, "changes_requested", note);
     await tellNewsroom(post, "changes_requested", detail);
   }

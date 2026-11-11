@@ -43,6 +43,9 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 const inputClasses =
   "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none";
 
+const fileClasses =
+  "mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:cursor-pointer file:rounded-full file:border file:border-zinc-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-50";
+
 // The three choices on the emailed review page. The popups are where they pick
 // a time or type the changes they want; nothing is sent until they confirm.
 export default function ReviewActions({
@@ -129,18 +132,18 @@ export default function ReviewActions({
                 We&rsquo;ll make the edits and email you a new link to review. Nothing goes live until you approve.
               </p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-700">
-                Change photo or add more photos <span className="font-normal text-zinc-400">(optional)</span>
-              </label>
-              <input
-                type="file"
-                name="photos"
-                accept="image/*"
-                multiple
-                className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:cursor-pointer file:rounded-full file:border file:border-zinc-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-50"
-              />
-              <p className="mt-1 text-xs text-zinc-500">Choose a new photo to swap in, or add more photos for the article (up to 5). Say which in your note.</p>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-zinc-700">
+                Photos <span className="font-normal text-zinc-400">(optional)</span>
+              </p>
+              <div>
+                <label className="block text-xs text-zinc-500">Change main photo</label>
+                <input type="file" name="mainPhoto" accept="image/*" className={fileClasses} />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500">Add photos (up to 5)</label>
+                <input type="file" name="photos" accept="image/*" multiple className={fileClasses} />
+              </div>
             </div>
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setOpen(null)} className="text-sm text-zinc-500 hover:text-zinc-800">

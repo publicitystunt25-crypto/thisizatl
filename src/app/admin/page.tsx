@@ -34,7 +34,7 @@ function PostRow({
 }: {
   post: Post;
   pending: boolean;
-  photoIds: number[];
+  photoIds: { id: number; kind: "main" | "extra" }[];
 }) {
   const reviewPhotoIds = photoIds;
   return (
@@ -98,10 +98,17 @@ function PostRow({
         )}
         {post.review_status === "changes_requested" && reviewPhotoIds.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
-            {reviewPhotoIds.map((pid) => (
-              <a key={pid} href={`/admin/review-photo/${pid}`} target="_blank" title="New photo they sent -- click to open">
+            {reviewPhotoIds.map((p) => (
+              <a
+                key={p.id}
+                href={`/admin/review-photo/${p.id}`}
+                target="_blank"
+                title={p.kind === "main" ? "New MAIN photo they sent -- click to open" : "Extra photo they sent -- click to open"}
+                className="text-center text-[10px] font-medium text-zinc-500"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/admin/review-photo/${pid}`} alt="Photo they sent" className="h-16 w-16 rounded-lg object-cover" />
+                <img src={`/admin/review-photo/${p.id}`} alt="Photo they sent" className="h-16 w-16 rounded-lg object-cover" />
+                {p.kind === "main" ? "Main" : "Extra"}
               </a>
             ))}
           </div>

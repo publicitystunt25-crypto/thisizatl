@@ -148,6 +148,7 @@ function ensureInit(): Promise<void> {
         image_mime TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      ALTER TABLE review_photos ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'extra';
     `).then(() => undefined);
   }
   return initialized;
@@ -676,20 +677,25 @@ export async function getCoverageRequestImage(id: number): Promise<{ data: Buffe
 
 // Replacement photos a submitter sends with a change request. Kept apart from
 // post_images so nothing reaches the live article until an admin uses it.
-export async function addReviewPhoto(postId: number, data: Buffer, mime: string): Promise<void> {
+export type ReviewPhotoKind = "main" | "extra";
+
+export async function addReviewPhoto(postId: number, data: Buffer, mime: string, kind: ReviewPhotoKind): Promise<void> {
   await ensureInit();
-  await pool.query(`INSERT INTO review_photos (post_id, image_data, image_mime) VALUES ($1, $2, $3)`, [
+  await pool.query(`INSERT INTO review_photos (post_id, image_data, image_mime, kind) VALUES ($1, $2, $3, $4)`, [
     postId,
     data,
     mime,
+    kind,
   ]);
 }
 
-export async function listReviewPhotoIds(): Promise<Record<number, number[]>> {
+export async function listReviewPhotoIds(): Promise<Record<number, { id: number; kind: ReviewPhotoKind }[]>> {
   await ensureInit();
-  const res = await pool.query<{ id: number; post_id: number }>(`SELECT id, post_id FROM review_photos ORDER BY id`);
-  const byPost: Record<number, number[]> = {};
-  for (const row of res.rows) (byPost[row.post_id] ??= []).push(row.id);
+  const res = await pool.query<{ id: number; post_id: number; kind: ReviewPhotoKind }>(
+    `SELECT id, post_id, kind FROM review_photos ORDER BY id`
+  );
+  const byPost: Record<number, { id: number; kind: ReviewPhotoKind }[]> = {};
+  for (const row of res.rows) (byPost[row.post_id] ??= []).push({ id: row.id, kind: row.kind });
   return byPost;
 }
 
