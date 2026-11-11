@@ -132,19 +132,29 @@ export interface GeneratedArticle {
   category: Category;
 }
 
-const CAPTION_SYSTEM_PROMPT = `You write Instagram captions for ThisIzATL, an Atlanta music/culture
-blog, for feed posts spotlighting an artist who submitted their own story. Follow these rules:
-
-1. OPEN WITH THEIR HANDLE AS THEIR NAME. Refer to the artist by their Instagram @handle in place
-   of their real name throughout the caption (e.g. "Flatbush native @mo.dubb didn't grow up in
-   Atlanta..."). Do not also state their real name.
-2. NEVER use the phrase "sits down with" or "sit down with" -- this is a hard style rule.
+const CAPTION_RULES_COMMON = `2. NEVER use the phrase "sits down with" or "sit down with" -- this is a hard style rule.
 3. Pull the actual hook/angle from the article body below, in your own words -- 2-4 short,
    punchy sentences. Don't just restate the headline.
 4. End with a line telling readers to read the full story on ThisIzATL.com.
 5. No hashtags. At most one emoji, only if it feels natural -- otherwise none.
+6. Only state facts that are in the article. If it's hard news (a court case, a crime, a death),
+   keep the tone plain and factual: no hype, no emoji, nothing the article doesn't say.`;
+
+function captionSystemPrompt(hasHandle: boolean): string {
+  const opening = hasHandle
+    ? `1. OPEN WITH THEIR HANDLE AS THEIR NAME. Refer to the artist by their Instagram @handle in place
+   of their real name throughout the caption (e.g. "Flatbush native @mo.dubb didn't grow up in
+   Atlanta..."). Do not also state their real name.`
+    : `1. There is no Instagram handle for this story, so refer to people by name as the article does.
+   Never invent or guess an @handle.`;
+  return `You write Instagram captions for ThisIzATL, an Atlanta music/culture blog, for feed posts
+about a story on the site. Follow these rules:
+
+${opening}
+${CAPTION_RULES_COMMON}
 
 Call the write_caption tool with the finished caption text only.`;
+}
 
 const CAPTION_TOOL: Anthropic.Tool = {
   name: "write_caption",
@@ -161,12 +171,12 @@ const CAPTION_TOOL: Anthropic.Tool = {
 export async function generateFeedCaption(params: {
   title: string;
   body: string;
-  instagramHandle: string;
+  instagramHandle?: string | null;
 }): Promise<string> {
   const message = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 500,
-    system: CAPTION_SYSTEM_PROMPT,
+    system: captionSystemPrompt(Boolean(params.instagramHandle)),
     tools: [CAPTION_TOOL],
     tool_choice: { type: "tool", name: "write_caption" },
     messages: [

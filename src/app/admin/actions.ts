@@ -316,7 +316,8 @@ export async function acceptAllAction(id: number): Promise<void> {
     }
   }
 
-  if (instagramHandle && !post.ig_feed_shared) {
+  // Not every story has an Instagram account to tag -- those still get a feed post, just without a tag.
+  if (!post.ig_feed_shared) {
     try {
       const caption = await generateFeedCaption({
         title: post.title,
@@ -335,7 +336,9 @@ export async function acceptAllAction(id: number): Promise<void> {
       if (feedResult.mediaId) {
         await setIgMediaId(post.id, feedResult.mediaId);
       }
-      await setIgFeedShared(post.id, true);
+      // Only mark it shared if Instagram actually took it, so the button stays for a retry.
+      if (feedResult.ok) await setIgFeedShared(post.id, true);
+      else console.error("Instagram feed post was not published for post", post.id);
     } catch (err) {
       console.error("Instagram feed publish failed:", err);
     }
