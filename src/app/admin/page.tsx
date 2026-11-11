@@ -33,9 +33,7 @@ function PostRow({
 }) {
   return (
     <div
-      className={`rounded-lg border border-zinc-200 bg-white p-4 ${
-        pending ? "" : "flex items-center justify-between gap-4"
-      }`}
+      className="rounded-lg border border-zinc-200 bg-white p-4"
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -71,18 +69,12 @@ function PostRow({
             <span className="text-xs text-zinc-400">by {post.author}</span>
           )}
         </div>
-        <p className={`mt-1 font-medium text-ink ${pending ? "" : "truncate"}`}>
-          {post.title}
-        </p>
+        <p className="mt-1 font-medium text-ink">{post.title}</p>
         <p className="text-xs text-zinc-400">
           {formatShortDateTime(post.created_at)}
         </p>
       </div>
-      <div
-        className={`flex shrink-0 flex-wrap items-center gap-3 text-sm ${
-          pending ? "mt-3" : ""
-        }`}
-      >
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
         {post.status === "published" ? (
           <Link
             href={`/posts/${post.slug}`}
