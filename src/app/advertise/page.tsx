@@ -37,6 +37,14 @@ export default function AdvertisePage() {
           >
             info@thisizatl.com
           </a>
+
+          <p className="text-sm text-zinc-500">
+            Looking for editorial coverage instead? Send a{" "}
+            <a href="/pitch" className="text-brand-dark hover:underline">
+              coverage request
+            </a>
+            .
+          </p>
         </div>
       </main>
 

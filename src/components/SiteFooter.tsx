@@ -4,8 +4,10 @@ import Link from "next/link";
 const LINKS = [
   { href: "/about", label: "About" },
   { href: "/advertise", label: "Advertise" },
+  { href: "/pitch", label: "Request Coverage" },
   { href: "/contact", label: "Contact" },
   { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
 ];
 
 export default function SiteFooter() {

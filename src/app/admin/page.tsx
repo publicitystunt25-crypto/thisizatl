@@ -1,6 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getAllPostsAdmin, countPendingVideoSubmissions, type Post } from "@/lib/db";
+import {
+  getAllPostsAdmin,
+  countPendingVideoSubmissions,
+  countNewCoverageRequests,
+  type Post,
+} from "@/lib/db";
 import { formatShortDateTime, formatDateTime, toEasternDatetimeLocalValue } from "@/lib/date";
 import {
   logoutAction,
@@ -268,6 +273,7 @@ function PostRow({
 export default async function AdminDashboard() {
   const posts = await getAllPostsAdmin();
   const pendingClips = await countPendingVideoSubmissions();
+  const newRequests = await countNewCoverageRequests();
   const pending = posts.filter((p) => p.status === "draft" || p.status === "scheduled");
   const rest = posts.filter((p) => p.status === "published");
 
@@ -290,6 +296,17 @@ export default async function AdminDashboard() {
               {pendingClips > 0 && (
                 <span className="ml-2 rounded-full bg-green-600 px-2 py-0.5 text-xs text-white">
                   {pendingClips}
+                </span>
+              )}
+            </Link>
+            <Link
+              href="/admin/requests"
+              className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Coverage Requests
+              {newRequests > 0 && (
+                <span className="ml-2 rounded-full bg-green-600 px-2 py-0.5 text-xs text-white">
+                  {newRequests}
                 </span>
               )}
             </Link>

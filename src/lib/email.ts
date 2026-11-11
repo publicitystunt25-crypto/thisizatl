@@ -234,6 +234,110 @@ Tell us your story and add a photo -- our team reviews every submission before i
 }
 
 // Sent to the newsroom inbox when someone uploads a video clip through /clip.
+export async function sendCoverageRequestNotification(req: {
+  requesterName: string;
+  requesterEmail: string;
+  requesterPhone: string | null;
+  organization: string | null;
+  role: string;
+  subjectName: string;
+  subjectInstagram: string | null;
+  requestType: string;
+  details: string;
+  eventDate: string | null;
+  deadline: string | null;
+  pressKitUrl: string | null;
+  otherLinks: string | null;
+  photoCount: number;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.SUBMISSION_NOTIFY_EMAIL;
+  if (!apiKey || !to) return;
+
+  const siteUrl = (process.env.SITE_URL || "https://thisizatl.com").replace(/\/$/, "");
+  const text = `New coverage request: ${req.requestType} -- ${req.subjectName}
+
+From: ${req.requesterName}${req.organization ? ` (${req.organization})` : ""} -- ${req.role}
+Email: ${req.requesterEmail}
+Phone: ${req.requesterPhone || "(not provided)"}
+
+About: ${req.subjectName}
+Instagram: ${req.subjectInstagram || "(not provided)"}
+Release/event date: ${req.eventDate || "(not provided)"}
+Need coverage by: ${req.deadline || "(not provided)"}
+Press kit: ${req.pressKitUrl || "(not provided)"}
+Photos: ${req.photoCount > 0 ? `${req.photoCount} attached (view them in the admin link below)` : "(none)"}
+
+Details:
+${req.details}
+${req.otherLinks ? `\nOther links:\n${req.otherLinks}\n` : ""}
+Review and mark it accepted or declined here (admin login required):
+${siteUrl}/admin/requests
+
+Replying to this email goes straight to ${req.requesterName}.`;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to,
+      reply_to: req.requesterEmail,
+      subject: `Coverage request: ${req.requestType} -- ${req.subjectName}`,
+      text,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Coverage request notification email failed:", res.status, body);
+  }
+}
+
+// Goes to whatever address a stranger typed into a public form, so it's a
+// fixed template: the only visitor-supplied text is the sender's name
+// (validated to be a plain name with no links) and nothing promises coverage.
+export async function sendCoverageRequestReceipt(requester: {
+  email: string;
+  name: string;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  const text = `Hi ${requester.name},
+
+Thanks for sending your coverage request to ThisIzATL -- we got it.
+
+Our team reads every request and will reach out if we can cover it. We can't promise coverage or a timeline, but we do look at everything that comes in.
+
+ThisIzATL
+Atlanta's source for music, entertainment, and culture news`;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: requester.email,
+      // Replies land with the newsroom, not in a no-reply void.
+      ...(process.env.SUBMISSION_NOTIFY_EMAIL ? { reply_to: process.env.SUBMISSION_NOTIFY_EMAIL } : {}),
+      subject: "We got your coverage request",
+      text,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Coverage request receipt email failed:", res.status, body);
+  }
+}
+
 export async function sendClipSubmissionNotification(clip: {
   name: string;
   headline?: string | null;

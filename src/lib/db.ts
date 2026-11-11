@@ -101,6 +101,35 @@ function ensureInit(): Promise<void> {
       ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS posting_started_at TIMESTAMPTZ;
       ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS posted_at TIMESTAMPTZ;
       ALTER TABLE video_submissions ADD COLUMN IF NOT EXISTS cover_token TEXT;
+
+      CREATE TABLE IF NOT EXISTS coverage_requests (
+        id SERIAL PRIMARY KEY,
+        requester_name TEXT NOT NULL,
+        requester_email TEXT NOT NULL,
+        requester_phone TEXT,
+        organization TEXT,
+        role TEXT NOT NULL,
+        subject_name TEXT NOT NULL,
+        subject_instagram TEXT,
+        request_type TEXT NOT NULL,
+        details TEXT NOT NULL,
+        event_date TEXT,
+        deadline TEXT,
+        press_kit_url TEXT,
+        other_links TEXT,
+        status TEXT NOT NULL DEFAULT 'new',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      ALTER TABLE coverage_requests ADD COLUMN IF NOT EXISTS post_id INTEGER;
+
+      CREATE TABLE IF NOT EXISTS coverage_request_images (
+        id SERIAL PRIMARY KEY,
+        request_id INTEGER NOT NULL REFERENCES coverage_requests(id) ON DELETE CASCADE,
+        image_data BYTEA NOT NULL,
+        image_mime TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
     `).then(() => undefined);
   }
   return initialized;
@@ -469,6 +498,155 @@ export async function insertNomination(nomination: {
     [nomination.nominator_name, nomination.nominee_name, nomination.nominee_email, nomination.nominee_instagram]
   );
   return res.rows[0].id;
+}
+
+export type CoverageStatus = "new" | "accepted" | "declined" | "covered";
+
+export interface CoverageRequest {
+  id: number;
+  requester_name: string;
+  requester_email: string;
+  requester_phone: string | null;
+  organization: string | null;
+  role: string;
+  subject_name: string;
+  subject_instagram: string | null;
+  request_type: string;
+  details: string;
+  event_date: string | null;
+  deadline: string | null;
+  press_kit_url: string | null;
+  other_links: string | null;
+  status: CoverageStatus;
+  // The draft article made from this request, once there is one.
+  post_id: number | null;
+  created_at: string;
+}
+
+export async function insertCoverageRequest(
+  r: Omit<CoverageRequest, "id" | "status" | "created_at" | "post_id">
+): Promise<number> {
+  await ensureInit();
+  const res = await pool.query<{ id: number }>(
+    `INSERT INTO coverage_requests
+       (requester_name, requester_email, requester_phone, organization, role, subject_name,
+        subject_instagram, request_type, details, event_date, deadline, press_kit_url, other_links)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+    [
+      r.requester_name,
+      r.requester_email,
+      r.requester_phone,
+      r.organization,
+      r.role,
+      r.subject_name,
+      r.subject_instagram,
+      r.request_type,
+      r.details,
+      r.event_date,
+      r.deadline,
+      r.press_kit_url,
+      r.other_links,
+    ]
+  );
+  return res.rows[0].id;
+}
+
+// How many requests the whole site and this one email address have sent
+// recently -- the public form's flood guard (see requestCoverageAction).
+export async function countRecentCoverageRequests(
+  email: string
+): Promise<{ siteLastHour: number; emailLastDay: number }> {
+  await ensureInit();
+  const res = await pool.query<{ site: string; mine: string }>(
+    `SELECT
+       count(*) FILTER (WHERE created_at > now() - interval '1 hour') AS site,
+       count(*) FILTER (WHERE created_at > now() - interval '1 day' AND lower(requester_email) = lower($1)) AS mine
+     FROM coverage_requests`,
+    [email]
+  );
+  return { siteLastHour: Number(res.rows[0].site), emailLastDay: Number(res.rows[0].mine) };
+}
+
+export async function listCoverageRequests(): Promise<CoverageRequest[]> {
+  await ensureInit();
+  const res = await pool.query<CoverageRequest>(
+    `SELECT * FROM coverage_requests ORDER BY created_at DESC LIMIT 300`
+  );
+  return res.rows;
+}
+
+export async function countNewCoverageRequests(): Promise<number> {
+  await ensureInit();
+  const res = await pool.query<{ n: string }>(
+    `SELECT count(*) AS n FROM coverage_requests WHERE status = 'new'`
+  );
+  return Number(res.rows[0].n);
+}
+
+export async function setCoverageRequestStatus(id: number, status: CoverageStatus): Promise<void> {
+  await ensureInit();
+  await pool.query(`UPDATE coverage_requests SET status = $1 WHERE id = $2`, [status, id]);
+}
+
+export async function getCoverageRequest(id: number): Promise<CoverageRequest | undefined> {
+  await ensureInit();
+  const res = await pool.query<CoverageRequest>(`SELECT * FROM coverage_requests WHERE id = $1`, [id]);
+  return res.rows[0];
+}
+
+// Photos are removed with it (ON DELETE CASCADE).
+export async function deleteCoverageRequest(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(`DELETE FROM coverage_requests WHERE id = $1`, [id]);
+}
+
+// Only sets it if no draft was linked yet, so a double-click can't link two.
+export async function setCoverageRequestPost(id: number, postId: number): Promise<boolean> {
+  await ensureInit();
+  const res = await pool.query(
+    `UPDATE coverage_requests SET post_id = $1 WHERE id = $2 AND post_id IS NULL`,
+    [postId, id]
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
+export async function listCoverageRequestImages(requestId: number): Promise<{ data: Buffer; mime: string }[]> {
+  await ensureInit();
+  const res = await pool.query<{ image_data: Buffer; image_mime: string }>(
+    `SELECT image_data, image_mime FROM coverage_request_images WHERE request_id = $1 ORDER BY id`,
+    [requestId]
+  );
+  return res.rows.map((r) => ({ data: r.image_data, mime: r.image_mime }));
+}
+
+export async function addCoverageRequestImage(requestId: number, data: Buffer, mime: string): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `INSERT INTO coverage_request_images (request_id, image_data, image_mime) VALUES ($1, $2, $3)`,
+    [requestId, data, mime]
+  );
+}
+
+// Photo ids grouped by request (ids only -- the bytes are served one at a time
+// by /admin/requests/photo/[id]).
+export async function listCoverageRequestImageIds(): Promise<Record<number, number[]>> {
+  await ensureInit();
+  const res = await pool.query<{ id: number; request_id: number }>(
+    `SELECT id, request_id FROM coverage_request_images ORDER BY id`
+  );
+  const byRequest: Record<number, number[]> = {};
+  for (const row of res.rows) (byRequest[row.request_id] ??= []).push(row.id);
+  return byRequest;
+}
+
+export async function getCoverageRequestImage(id: number): Promise<{ data: Buffer; mime: string } | undefined> {
+  await ensureInit();
+  const res = await pool.query<{ image_data: Buffer; image_mime: string }>(
+    `SELECT image_data, image_mime FROM coverage_request_images WHERE id = $1`,
+    [id]
+  );
+  const row = res.rows[0];
+  return row ? { data: row.image_data, mime: row.image_mime } : undefined;
 }
 
 // Returns the new row's id and a random cover token (lets the submitter view

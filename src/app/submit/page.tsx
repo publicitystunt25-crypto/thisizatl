@@ -23,6 +23,14 @@ export default function SubmitPage() {
           up. Submissions are reviewed before they go live, so make sure
           everything below is accurate.
         </p>
+        <p className="mt-2 text-sm text-zinc-500">
+          Publicist, manager, or brand pitching an artist, release, or event?
+          Send a{" "}
+          <a href="/pitch" className="text-brand-dark hover:underline">
+            coverage request
+          </a>{" "}
+          instead.
+        </p>
 
         <SubmitForm />
       </main>

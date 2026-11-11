@@ -31,6 +31,14 @@ export default function ContactPage() {
           </a>
 
           <p className="text-sm text-zinc-500">
+            Want us to cover an artist, release, or event? Send a{" "}
+            <a href="/pitch" className="text-brand-dark hover:underline">
+              coverage request
+            </a>
+            .
+          </p>
+
+          <p className="text-sm text-zinc-500">
             For advertising inquiries, see our{" "}
             <a href="/advertise" className="text-brand-dark hover:underline">
               Advertise
