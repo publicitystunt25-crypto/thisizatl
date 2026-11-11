@@ -23,6 +23,8 @@ import {
   setGoldenPeach,
   unsetGoldenPeach,
   setSocialShared,
+  markPreviewEmailed,
+  ensureReviewToken,
   setIgFeedShared,
   setIgMediaId,
   schedulePost,
@@ -39,7 +41,8 @@ import {
   deleteFacebookPost,
 } from "@/lib/social";
 import { generateFeedCaption } from "@/lib/generate";
-import { sendArticleLiveNotification } from "@/lib/email";
+import { sendArticleLiveNotification, sendArticlePreviewEmail } from "@/lib/email";
+import { publishPostNow } from "@/lib/publishPost";
 import { fromEasternDatetimeLocalValue } from "@/lib/date";
 import { processImageUpload } from "@/lib/image";
 
@@ -269,53 +272,7 @@ export async function unsetGoldenPeachAction(id: number): Promise<void> {
 
 export async function approvePostAction(id: number): Promise<void> {
   await requireAdmin();
-  const post = await getPostById(id);
-  if (!post) throw new Error("Post not found");
-
-  // Guards against double-posting to Facebook/Instagram if this action fires
-  // twice for the same click -- e.g. a slow request getting silently retried
-  // by the browser or a proxy. A post that's already published has nothing
-  // left to do here.
-  if (post.status === "published") return;
-
-  await updatePost(id, {
-    slug: post.slug,
-    title: post.title,
-    body: post.body,
-    category: post.category,
-    status: "published",
-  });
-
-  let instagramHandle: string | null = null;
-  try {
-    const sources = JSON.parse(post.sources) as { source: string; url: string }[];
-    const igSource = sources.find((s) => s.source === "Instagram");
-    instagramHandle = extractInstagramHandle(igSource?.url);
-  } catch {
-    // sources isn't valid JSON or doesn't include an Instagram entry -- fine,
-    // just means no tag gets attached.
-  }
-
-  const result = await shareNewPost({
-    id: post.id,
-    title: post.title,
-    slug: post.slug,
-    image_url: post.image_url,
-    instagramHandle,
-  });
-  await setSocialShared(post.id, result.ok, result.fbPostId);
-  await clearSchedule(post.id);
-
-  if (post.submitter_email) {
-    try {
-      await sendArticleLiveNotification(post.submitter_email, post.image_credit || "there", post.title, post.slug);
-    } catch (err) {
-      console.error("Article-live notification email failed:", err);
-    }
-  }
-
-  revalidatePath("/");
-  revalidatePath("/admin");
+  await publishPostNow(id);
 }
 
 // Approves the post the same way approvePostAction does, then additionally
@@ -428,5 +385,29 @@ export async function retrySocialShareAction(id: number): Promise<void> {
   });
   await setSocialShared(post.id, result.ok, result.fbPostId);
 
+  revalidatePath("/admin");
+}
+
+// Emails the person who submitted a draft a private review link, where they
+// can approve it (go live now or schedule) or request changes. Only unpublished
+// posts with an email on file. The link carries a secret token, so unlike the
+// "Share" preview it can't be guessed from the article's number.
+export async function emailPreviewAction(id: number): Promise<void> {
+  await requireAdmin();
+  const post = await getPostById(id);
+  if (!post || post.status === "published") throw new Error("Only unpublished posts can be sent for approval");
+  if (!post.submitter_email) throw new Error("No email on file for this post");
+
+  const siteUrl = (process.env.SITE_URL || "https://thisizatl.com").replace(/\/$/, "");
+  const token = await ensureReviewToken(post.id);
+  const sent = await sendArticlePreviewEmail(
+    post.submitter_email,
+    post.image_credit || "there",
+    post.title,
+    `${siteUrl}/review/${token}`
+  );
+  if (!sent) throw new Error("The preview email could not be sent -- check the email service and try again");
+
+  await markPreviewEmailed(post.id);
   revalidatePath("/admin");
 }

@@ -19,8 +19,10 @@ import {
   retrySocialShareAction,
   schedulePostAction,
   cancelScheduleAction,
+  emailPreviewAction,
 } from "./actions";
 import ScheduleControl from "./ScheduleControl";
+import EmailPreviewButton from "./EmailPreviewButton";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +64,21 @@ function PostRow({
               Didn&rsquo;t share to FB/IG
             </span>
           )}
+          {post.status === "draft" && post.review_status === "awaiting" && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              Awaiting their approval
+            </span>
+          )}
+          {post.status === "draft" && post.review_status === "changes_requested" && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+              Changes requested
+            </span>
+          )}
+          {post.status === "scheduled" && post.review_status === "scheduled" && (
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+              Approved by submitter
+            </span>
+          )}
           <span className="rounded-full bg-brand/15 px-2 py-0.5 text-xs font-medium text-brand-dark">
             {post.category}
           </span>
@@ -70,6 +87,11 @@ function PostRow({
           )}
         </div>
         <p className="mt-1 font-medium text-ink">{post.title}</p>
+        {post.review_status === "changes_requested" && post.review_note && (
+          <p className="mt-2 whitespace-pre-wrap rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            <span className="font-medium">Their requested changes:</span> {post.review_note}
+          </p>
+        )}
         <p className="text-xs text-zinc-400">
           {formatShortDateTime(post.created_at)}
         </p>
@@ -145,6 +167,19 @@ function PostRow({
                 await schedulePostAction(post.id, formData);
               }}
             />
+            {post.submitter_email && (
+              <form
+                action={async () => {
+                  "use server";
+                  await emailPreviewAction(post.id);
+                }}
+              >
+                <EmailPreviewButton
+                  email={post.submitter_email}
+                  sentLabel={post.preview_emailed_at ? formatShortDateTime(post.preview_emailed_at) : null}
+                />
+              </form>
+            )}
           </>
         )}
         {pending && post.status === "scheduled" && (

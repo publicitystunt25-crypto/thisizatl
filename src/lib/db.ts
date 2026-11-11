@@ -55,6 +55,12 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS ig_feed_shared BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS ig_media_id TEXT;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_golden_peach BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS preview_emailed_at TIMESTAMPTZ;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_token TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS posts_review_token_idx ON posts (review_token);
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_status TEXT;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_note TEXT;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_responded_at TIMESTAMPTZ;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -162,6 +168,13 @@ export interface Post {
   ig_feed_shared: boolean;
   ig_media_id: string | null;
   is_golden_peach: boolean;
+  // When the preview link was last emailed to the submitter from the admin.
+  preview_emailed_at: string | null;
+  // The submitter's answer from the emailed review page: "awaiting" once the
+  // link is sent, then "live", "scheduled" or "changes_requested".
+  review_status: "awaiting" | "live" | "scheduled" | "changes_requested" | null;
+  review_note: string | null;
+  review_responded_at: string | null;
 }
 
 export interface PostImage {
@@ -479,7 +492,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -810,11 +823,53 @@ export async function getPostsByAuthor(author: string): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at
      FROM posts WHERE id = $1`,
     [id]
   );
   return res.rows[0];
+}
+
+// Sending the review link (again) puts the post back to "awaiting" and clears
+// any earlier change request, since the submitter is being asked to look again.
+export async function markPreviewEmailed(id: number): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `UPDATE posts SET preview_emailed_at = now(), review_status = 'awaiting', review_note = NULL, review_responded_at = NULL
+     WHERE id = $1`,
+    [id]
+  );
+}
+
+// The secret in the emailed review link. Created the first time the link is
+// sent and reused after, so an earlier email's link keeps working.
+export async function ensureReviewToken(id: number): Promise<string> {
+  await ensureInit();
+  const res = await pool.query<{ review_token: string }>(
+    `UPDATE posts SET review_token = COALESCE(review_token, $2) WHERE id = $1 RETURNING review_token`,
+    [id, randomBytes(24).toString("base64url")]
+  );
+  if (!res.rows[0]) throw new Error("Post not found");
+  return res.rows[0].review_token;
+}
+
+export async function getPostByReviewToken(token: string): Promise<Post | undefined> {
+  await ensureInit();
+  const res = await pool.query<{ id: number }>(`SELECT id FROM posts WHERE review_token = $1`, [token]);
+  const id = res.rows[0]?.id;
+  return id === undefined ? undefined : getPostById(id);
+}
+
+export async function recordReviewResponse(
+  id: number,
+  status: "live" | "scheduled" | "changes_requested",
+  note: string | null
+): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `UPDATE posts SET review_status = $2, review_note = $3, review_responded_at = now() WHERE id = $1`,
+    [id, status, note]
+  );
 }
 
 export const getPostBySlug = cache(

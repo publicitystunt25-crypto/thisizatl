@@ -61,6 +61,9 @@ export async function createDraftFromRequestAction(id: number): Promise<void> {
     category: draft.category,
     status: "draft",
     author: "ThisIzATL Staff",
+    // Lets "Email preview" reach the requester, and means they get the usual
+    // "your feature is live" email when it's published, like /submit authors.
+    submitter_email: request.requester_email,
   });
 
   // A double-click can start two drafts at once; only the first to link wins.

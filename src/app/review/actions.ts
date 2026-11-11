@@ -1,0 +1,89 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { getPostByReviewToken, recordReviewResponse, schedulePost, type Post } from "@/lib/db";
+import { publishPostNow } from "@/lib/publishPost";
+import { sendReviewResponseNotification } from "@/lib/email";
+import { formatDateTime, fromEasternDatetimeLocalValue } from "@/lib/date";
+
+// These run for whoever holds the emailed review link, with no login -- the
+// secret token in the link is the whole credential. Each one only acts on an
+// unpublished post that is still waiting on the submitter's answer, so a stale
+// tab or a double click can't publish twice or override an earlier choice.
+const MIN_LEAD_MINUTES = 10;
+const MAX_SCHEDULE_DAYS = 60;
+
+async function awaitingPost(token: string): Promise<Post | null> {
+  const post = await getPostByReviewToken(token);
+  if (!post) throw new Error("This review link isn't valid");
+  if (post.status !== "draft" || post.review_status === "changes_requested") return null;
+  return post;
+}
+
+async function tellNewsroom(
+  post: Post,
+  outcome: "live" | "scheduled" | "changes_requested",
+  detail: string | null
+): Promise<void> {
+  try {
+    await sendReviewResponseNotification({
+      postId: post.id,
+      title: post.title,
+      submitterEmail: post.submitter_email,
+      outcome,
+      detail,
+    });
+  } catch (err) {
+    console.error("Review response notification failed:", err);
+  }
+}
+
+function done(token: string): never {
+  revalidatePath("/admin");
+  revalidatePath(`/review/${token}`);
+  redirect(`/review/${token}`);
+}
+
+export async function goLiveNowAction(token: string): Promise<void> {
+  const post = await awaitingPost(token);
+  if (post) {
+    await publishPostNow(post.id);
+    await recordReviewResponse(post.id, "live", null);
+    await tellNewsroom(post, "live", null);
+  }
+  done(token);
+}
+
+export async function scheduleAction(token: string, formData: FormData): Promise<void> {
+  const post = await awaitingPost(token);
+  if (post) {
+    const raw = String(formData.get("scheduledFor") || "").trim();
+    const when = raw ? Date.parse(fromEasternDatetimeLocalValue(raw)) : NaN;
+    const now = Date.now();
+    if (
+      Number.isNaN(when) ||
+      when < now + MIN_LEAD_MINUTES * 60_000 ||
+      when > now + MAX_SCHEDULE_DAYS * 24 * 3600_000
+    ) {
+      redirect(`/review/${token}?error=time`);
+    }
+    const iso = new Date(when).toISOString();
+    await schedulePost(post.id, iso);
+    const label = `${formatDateTime(iso)} Eastern`;
+    await recordReviewResponse(post.id, "scheduled", label);
+    await tellNewsroom(post, "scheduled", label);
+  }
+  done(token);
+}
+
+export async function requestChangesAction(token: string, formData: FormData): Promise<void> {
+  const post = await awaitingPost(token);
+  if (post) {
+    const note = String(formData.get("note") || "").replace(/\r\n/g, "\n").trim().slice(0, 2000);
+    if (note.length < 3) redirect(`/review/${token}?error=note`);
+    await recordReviewResponse(post.id, "changes_requested", note);
+    await tellNewsroom(post, "changes_requested", note);
+  }
+  done(token);
+}

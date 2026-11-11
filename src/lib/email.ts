@@ -138,6 +138,102 @@ Feel free to share the link with your fans, and follow and tag ThisIzATL on Inst
   }
 }
 
+// Sent from the admin ("Send for approval") so the person who submitted an
+// article can review it before it goes live. The link opens a private review
+// page where they can approve (go live now or schedule) or request changes. A
+// fixed template -- the only variable text is our own headline and the artist
+// name they gave us.
+export async function sendArticlePreviewEmail(
+  to: string,
+  artistName: string,
+  title: string,
+  reviewUrl: string
+): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !to) return false;
+
+  const text = `Hey ${artistName},
+
+Your feature is ready. Please click the link to review, approve or request changes to your article:
+
+"${title}"
+${reviewUrl}
+
+Nothing goes live until you approve it -- you can publish it right away or pick when it goes live. Please keep this link to yourself.
+
+-- ThisIzATL`;
+
+  const replyTo = process.env.SUBMISSION_NOTIFY_EMAIL;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      subject: `Your ThisIzATL feature is ready to review: ${title}`,
+      text,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Article preview email failed:", res.status, body);
+    return false;
+  }
+  return true;
+}
+
+// Tells the newsroom what the submitter chose on the review page.
+export async function sendReviewResponseNotification(r: {
+  postId: number;
+  title: string;
+  submitterEmail: string | null;
+  outcome: "live" | "scheduled" | "changes_requested";
+  detail: string | null; // the scheduled time, or the change request
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.SUBMISSION_NOTIFY_EMAIL;
+  if (!apiKey || !to) return;
+
+  const siteUrl = (process.env.SITE_URL || "https://thisizatl.com").replace(/\/$/, "");
+  const headline =
+    r.outcome === "live"
+      ? "approved it and published it right away"
+      : r.outcome === "scheduled"
+        ? `approved it and scheduled it for ${r.detail}`
+        : "asked for changes";
+  const body =
+    r.outcome === "changes_requested"
+      ? `\nTheir message:\n${r.detail}\n\nMake the edits in the admin, then use "Send for approval" to email them a fresh review request.`
+      : r.outcome === "scheduled"
+        ? "\nScheduled posts are published by the next scheduled run after that time, so it can go live a few hours later."
+        : "\nIt's been posted to the site, the Facebook Page and the Instagram story. The IG feed post is still yours to send if you want one.";
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to,
+      ...(r.submitterEmail ? { reply_to: r.submitterEmail } : {}),
+      subject: `Review response: "${r.title}" -- ${r.outcome === "changes_requested" ? "changes requested" : r.outcome === "live" ? "approved, live now" : "approved, scheduled"}`,
+      text: `${r.submitterEmail || "The submitter"} ${headline}:\n\n"${r.title}"\n${body}\n\nOpen it in the admin (login required):\n${siteUrl}/admin/${r.postId}/edit`,
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("Review response notification email failed:", res.status, errBody);
+  }
+}
+
 // Sent to the newsroom inbox when a visitor nominates someone to be
 // highlighted via the form at the bottom of /submit.
 export async function sendNominationNotification(nomination: {
