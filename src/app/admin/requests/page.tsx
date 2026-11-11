@@ -53,6 +53,12 @@ function safeHref(raw: string | null): string | null {
 
 function RequestCard({ r, photoIds }: { r: CoverageRequest; photoIds: number[] }) {
   const handle = extractInstagramHandle(r.subject_instagram);
+  let collabUrls: string[] = [];
+  try {
+    collabUrls = r.collab_instagrams ? (JSON.parse(r.collab_instagrams) as string[]) : [];
+  } catch {
+    collabUrls = [];
+  }
   const pressKit = safeHref(r.press_kit_url);
   const otherLinks = r.other_links ? r.other_links.split("\n").map((l) => l.trim()).filter(Boolean) : [];
 
@@ -103,6 +109,21 @@ function RequestCard({ r, photoIds }: { r: CoverageRequest; photoIds: number[] }
               ) : (
                 r.subject_instagram
               )}
+            </dd>
+          </div>
+        )}
+        {collabUrls.length > 0 && (
+          <div>
+            <dt className="text-zinc-500">Collab pages</dt>
+            <dd className="text-zinc-800">
+              {collabUrls.map((u, i) => (
+                <span key={u}>
+                  {i > 0 ? ", " : ""}
+                  <a href={u} target="_blank" rel="noopener noreferrer" className="text-brand-dark hover:underline">
+                    {u.replace(/^https?:\/\/(www\.)?instagram\.com\//i, "@").replace(/\/$/, "")}
+                  </a>
+                </span>
+              ))}
             </dd>
           </div>
         )}

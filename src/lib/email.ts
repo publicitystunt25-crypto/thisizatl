@@ -392,6 +392,7 @@ export async function sendCoverageRequestNotification(req: {
   deadline: string | null;
   pressKitUrl: string | null;
   otherLinks: string | null;
+  collabInstagrams: string[];
   photoCount: number;
 }): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -407,6 +408,7 @@ Phone: ${req.requesterPhone || "(not provided)"}
 
 About: ${req.subjectName}
 Instagram: ${req.subjectInstagram || "(not provided)"}
+Collab pages: ${req.collabInstagrams.length ? req.collabInstagrams.join(", ") : "(none)"}
 Release/event date: ${req.eventDate || "(not provided)"}
 Need coverage by: ${req.deadline || "(not provided)"}
 Press kit: ${req.pressKitUrl || "(not provided)"}

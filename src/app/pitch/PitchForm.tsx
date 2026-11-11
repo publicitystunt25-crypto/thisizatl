@@ -9,6 +9,7 @@ import {
   MAX_PITCH_PHOTOS,
   MAX_PITCH_PHOTO_BYTES,
   MAX_PITCH_DETAILS_CHARS,
+  MAX_PITCH_COLLABS,
 } from "@/lib/coverage";
 
 // Values ride along on an error so the form can repopulate: React clears an
@@ -28,6 +29,7 @@ export type PitchValues = {
   deadline: string;
   pressKitUrl: string;
   otherLinks: string;
+  collabHandles: string[];
 };
 
 export type PitchState =
@@ -39,6 +41,54 @@ const inputClasses =
   "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-brand focus:outline-none";
 const labelClasses = "block text-sm font-medium text-zinc-700";
 const hintClasses = "mt-1 text-xs text-zinc-500";
+
+// Same question as the /submit form: which Instagram pages we should invite to
+// collaborate on the post.
+function CollabFields({ initial }: { initial: string[] }) {
+  const [count, setCount] = useState(Math.max(1, Math.min(initial.length, MAX_PITCH_COLLABS)));
+  return (
+    <div>
+      <label className={labelClasses}>What additional pages should we collaborate with on the post? (optional)</label>
+      <p className={hintClasses}>
+        Instagram pages we should invite as collaborators, such as the artist, a label, or a venue.
+      </p>
+      <div className="mt-1 space-y-2">
+        {Array.from({ length: count }).map((_, i) => (
+          <input
+            key={i}
+            type="text"
+            name="collabHandle"
+            maxLength={200}
+            defaultValue={initial[i] ?? ""}
+            placeholder="@handle or https://instagram.com/handle"
+            className={inputClasses}
+          />
+        ))}
+      </div>
+      {count < MAX_PITCH_COLLABS && (
+        <button
+          type="button"
+          onClick={() => setCount((c) => Math.min(c + 1, MAX_PITCH_COLLABS))}
+          className="mt-2 text-sm font-medium text-brand-dark hover:underline"
+        >
+          + Add another page
+        </button>
+      )}
+      <p className={hintClasses}>
+        For collab posts, please{" "}
+        <a
+          href="https://www.instagram.com/thisizatl"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-brand-dark hover:underline"
+        >
+          follow ThisIzATL on Instagram
+        </a>
+        .
+      </p>
+    </div>
+  );
+}
 
 function formatMB(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
@@ -207,6 +257,8 @@ function PitchFormInner({ onSendAgain }: { onSendAgain: () => void }) {
           className={inputClasses}
         />
       </div>
+
+      <CollabFields initial={v?.collabHandles ?? []} />
 
       <div>
         <label className={labelClasses}>What type of coverage are you looking for?</label>

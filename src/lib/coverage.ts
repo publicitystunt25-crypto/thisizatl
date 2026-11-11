@@ -27,3 +27,6 @@ export const REQUEST_TYPES = [
   "Event coverage",
   "Other",
 ] as const;
+
+// Extra Instagram pages a requester can ask us to collaborate with on the post.
+export const MAX_PITCH_COLLABS = 3;

@@ -131,6 +131,7 @@ function ensureInit(): Promise<void> {
       );
 
       ALTER TABLE coverage_requests ADD COLUMN IF NOT EXISTS post_id INTEGER;
+      ALTER TABLE coverage_requests ADD COLUMN IF NOT EXISTS collab_instagrams TEXT;
       UPDATE posts p SET submitter_email = r.requester_email
         FROM coverage_requests r
         WHERE r.post_id = p.id AND p.status IN ('draft', 'scheduled')
@@ -550,6 +551,8 @@ export interface CoverageRequest {
   deadline: string | null;
   press_kit_url: string | null;
   other_links: string | null;
+  // JSON array of Instagram profile URLs they want invited to collaborate on the post.
+  collab_instagrams: string | null;
   status: CoverageStatus;
   // The draft article made from this request, once there is one.
   post_id: number | null;
@@ -563,8 +566,8 @@ export async function insertCoverageRequest(
   const res = await pool.query<{ id: number }>(
     `INSERT INTO coverage_requests
        (requester_name, requester_email, requester_phone, organization, role, subject_name,
-        subject_instagram, request_type, details, event_date, deadline, press_kit_url, other_links)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+        subject_instagram, request_type, details, event_date, deadline, press_kit_url, other_links, collab_instagrams)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
     [
       r.requester_name,
       r.requester_email,
@@ -579,6 +582,7 @@ export async function insertCoverageRequest(
       r.deadline,
       r.press_kit_url,
       r.other_links,
+      r.collab_instagrams,
     ]
   );
   return res.rows[0].id;

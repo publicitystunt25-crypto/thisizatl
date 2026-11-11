@@ -4,7 +4,13 @@ import { insertCoverageRequest, countRecentCoverageRequests, addCoverageRequestI
 import { processImageUpload } from "@/lib/image";
 import { sendCoverageRequestNotification, sendCoverageRequestReceipt } from "@/lib/email";
 import { normalizeInstagramInput } from "@/lib/social";
-import { REQUESTER_ROLES, REQUEST_TYPES, MAX_PITCH_PHOTOS, MAX_PITCH_DETAILS_CHARS } from "@/lib/coverage";
+import {
+  REQUESTER_ROLES,
+  REQUEST_TYPES,
+  MAX_PITCH_PHOTOS,
+  MAX_PITCH_DETAILS_CHARS,
+  MAX_PITCH_COLLABS,
+} from "@/lib/coverage";
 import type { PitchState, PitchValues } from "./PitchForm";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -65,6 +71,7 @@ export async function requestCoverageAction(
     deadline: field(formData, "deadline"),
     pressKitUrl: field(formData, "pressKitUrl"),
     otherLinks: field(formData, "otherLinks"),
+    collabHandles: formData.getAll("collabHandle").map((v) => String(v)).slice(0, MAX_PITCH_COLLABS),
   };
   const fail = (message: string): PitchState => ({ status: "error", message, values });
 
@@ -115,6 +122,10 @@ export async function requestCoverageAction(
   // team still sees what the person meant.
   const subjectInstagram = rawInstagram ? normalizeInstagramInput(rawInstagram) ?? rawInstagram : null;
 
+  const collabUrls = values.collabHandles
+    .map((v) => normalizeInstagramInput(oneLine(v, 200)))
+    .filter((v): v is string => !!v);
+
   const request = {
     requester_name: requesterName,
     requester_email: requesterEmail,
@@ -131,6 +142,7 @@ export async function requestCoverageAction(
     deadline: DATE_PATTERN.test(values.deadline) ? values.deadline : null,
     press_kit_url: pressKitUrl,
     other_links: values.otherLinks.replace(/\r\n/g, "\n").trim().slice(0, 1000) || null,
+    collab_instagrams: collabUrls.length ? JSON.stringify(collabUrls) : null,
   };
 
   const requestId = await insertCoverageRequest(request);
@@ -165,6 +177,7 @@ export async function requestCoverageAction(
       deadline: request.deadline,
       pressKitUrl: request.press_kit_url,
       otherLinks: request.other_links,
+      collabInstagrams: collabUrls,
       photoCount: savedPhotos,
     });
   } catch (err) {

@@ -49,11 +49,20 @@ export async function createDraftFromRequestAction(id: number): Promise<void> {
   const draft = await generateCoverageDraft(request);
 
   const instagramUrl = request.subject_instagram ? normalizeInstagramInput(request.subject_instagram) : null;
+  let collabUrls: string[] = [];
+  try {
+    collabUrls = request.collab_instagrams ? (JSON.parse(request.collab_instagrams) as string[]) : [];
+  } catch {
+    collabUrls = [];
+  }
   const postId = await insertPost({
     slug: slugify(draft.title),
     title: draft.title,
     body: draft.body,
-    sources: instagramUrl ? [{ title: "Follow on Instagram", url: instagramUrl, source: "Instagram" }] : [],
+    sources: [
+      ...(instagramUrl ? [{ title: "Follow on Instagram", url: instagramUrl, source: "Instagram" }] : []),
+      ...collabUrls.map((url) => ({ title: "Collaborate", url, source: "Collaborator" })),
+    ],
     similarity_note: null,
     image_url: null,
     image_credit_name: null,
