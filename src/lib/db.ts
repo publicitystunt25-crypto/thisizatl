@@ -62,6 +62,7 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_note TEXT;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS review_responded_at TIMESTAMPTZ;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS revision_send_at TIMESTAMPTZ;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS hold_after_approval BOOLEAN NOT NULL DEFAULT false;
 
       CREATE TABLE IF NOT EXISTS post_images (
         id SERIAL PRIMARY KEY,
@@ -186,7 +187,8 @@ export interface Post {
   preview_emailed_at: string | null;
   // The submitter's answer from the emailed review page: "awaiting" once the
   // link is sent, then "live", "scheduled" or "changes_requested".
-  review_status: "awaiting" | "live" | "scheduled" | "changes_requested" | "revising" | null;
+  review_status: "awaiting" | "live" | "scheduled" | "changes_requested" | "revising" | "approved" | null;
+  hold_after_approval: boolean;
   revision_send_at: string | null;
   review_note: string | null;
   review_responded_at: string | null;
@@ -507,7 +509,7 @@ export async function getAllPosts(category?: string): Promise<Post[]> {
 export async function getAllPostsAdmin(): Promise<Post[]> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at, hold_after_approval
      FROM posts ORDER BY created_at DESC`
   );
   return res.rows;
@@ -907,7 +909,7 @@ export async function getPostsByAuthor(author: string): Promise<Post[]> {
 export async function getPostById(id: number): Promise<Post | undefined> {
   await ensureInit();
   const res = await pool.query<Post>(
-    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at
+    `SELECT id, slug, title, body, sources, similarity_note, image_url, image_credit_name, image_credit_url, image_credit, category, status, author, created_at, is_featured, image_width, image_height, social_shared, scheduled_for, submitter_email, fb_post_id, focus_x, focus_y, ig_feed_shared, ig_media_id, is_golden_peach, preview_emailed_at, review_status, review_note, review_responded_at, revision_send_at, hold_after_approval
      FROM posts WHERE id = $1`,
     [id]
   );
@@ -946,7 +948,7 @@ export async function getPostByReviewToken(token: string): Promise<Post | undefi
 
 export async function recordReviewResponse(
   id: number,
-  status: "live" | "scheduled" | "changes_requested",
+  status: "live" | "scheduled" | "changes_requested" | "approved",
   note: string | null
 ): Promise<void> {
   await ensureInit();

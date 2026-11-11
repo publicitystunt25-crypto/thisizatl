@@ -232,7 +232,7 @@ export async function sendReviewResponseNotification(r: {
   postId: number;
   title: string;
   submitterEmail: string | null;
-  outcome: "live" | "scheduled" | "changes_requested";
+  outcome: "live" | "scheduled" | "changes_requested" | "approved";
   detail: string | null; // the scheduled time, or the change request
   // For change requests: whether the edits were applied automatically.
   autoUpdate?: "updated" | "manual";
@@ -247,12 +247,16 @@ export async function sendReviewResponseNotification(r: {
       ? "approved it and published it right away"
       : r.outcome === "scheduled"
         ? `approved it and scheduled it for ${r.detail}`
-        : "asked for changes";
+        : r.outcome === "approved"
+          ? "approved it -- NOTHING has been posted or scheduled"
+          : "asked for changes";
   const body =
     r.outcome === "changes_requested"
       ? r.autoUpdate === "updated"
         ? `\nTheir message:\n${r.detail}\n\nI already made these edits to the draft. They'll get an "Your article has been updated" email with a fresh review link in about 10 minutes. Check the draft in the admin if you'd like to look it over first.`
         : `\nTheir message:\n${r.detail}\n\nI couldn't apply all of this automatically, so nothing was emailed to them. Make the edits in the admin, then use "Send for approval" to email them a fresh review request.`
+      : r.outcome === "approved"
+        ? `\n${r.detail}\n\nYou asked me not to post this one -- it is still a draft and nothing has gone out. Publish or schedule it from the admin when you are ready.`
       : r.outcome === "scheduled"
         ? "\nScheduled posts are published by the next scheduled run after that time, so it can go live a few hours later."
         : "\nIt's been posted to the site, the Facebook Page and the Instagram story. The IG feed post is still yours to send if you want one.";
@@ -267,7 +271,7 @@ export async function sendReviewResponseNotification(r: {
       from: FROM_ADDRESS,
       to,
       ...(r.submitterEmail ? { reply_to: r.submitterEmail } : {}),
-      subject: `Review response: "${r.title}" -- ${r.outcome === "changes_requested" ? "changes requested" : r.outcome === "live" ? "approved, live now" : "approved, scheduled"}`,
+      subject: `Review response: "${r.title}" -- ${r.outcome === "changes_requested" ? "changes requested" : r.outcome === "live" ? "approved, live now" : r.outcome === "approved" ? "APPROVED (not posted)" : "approved, scheduled"}`,
       text: `${r.submitterEmail || "The submitter"} ${headline}:\n\n"${r.title}"\n${body}\n\nOpen it in the admin (login required):\n${siteUrl}/admin/${r.postId}/edit`,
     }),
   });

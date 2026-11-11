@@ -20,7 +20,7 @@ const MAX_REVIEW_PHOTOS = 5;
 async function awaitingPost(token: string): Promise<Post | null> {
   const post = await getPostByReviewToken(token);
   if (!post) throw new Error("This review link isn't valid");
-  if (post.status !== "draft" || post.review_status === "changes_requested" || post.review_status === "revising") {
+  if (post.status !== "draft" || post.review_status === "changes_requested" || post.review_status === "revising" || post.review_status === "approved") {
     return null;
   }
   return post;
@@ -28,7 +28,7 @@ async function awaitingPost(token: string): Promise<Post | null> {
 
 async function tellNewsroom(
   post: Post,
-  outcome: "live" | "scheduled" | "changes_requested",
+  outcome: "live" | "scheduled" | "changes_requested" | "approved",
   detail: string | null,
   autoUpdate?: "updated" | "manual"
 ): Promise<void> {
@@ -54,7 +54,11 @@ function done(token: string): never {
 
 export async function goLiveNowAction(token: string): Promise<void> {
   const post = await awaitingPost(token);
-  if (post) {
+  if (post?.hold_after_approval) {
+    // Approved, but the newsroom asked to be told first rather than publishing.
+    await recordReviewResponse(post.id, "approved", "Wants it to go live right away");
+    await tellNewsroom(post, "approved", "They chose: go live right away.");
+  } else if (post) {
     await publishPostNow(post.id);
     await recordReviewResponse(post.id, "live", null);
     await tellNewsroom(post, "live", null);
@@ -76,10 +80,15 @@ export async function scheduleAction(token: string, formData: FormData): Promise
       redirect(`/review/${token}?error=time`);
     }
     const iso = new Date(when).toISOString();
-    await schedulePost(post.id, iso);
     const label = `${formatDateTime(iso)} Eastern`;
-    await recordReviewResponse(post.id, "scheduled", label);
-    await tellNewsroom(post, "scheduled", label);
+    if (post.hold_after_approval) {
+      await recordReviewResponse(post.id, "approved", `Wants it to go live ${label}`);
+      await tellNewsroom(post, "approved", `They chose: go live ${label}.`);
+    } else {
+      await schedulePost(post.id, iso);
+      await recordReviewResponse(post.id, "scheduled", label);
+      await tellNewsroom(post, "scheduled", label);
+    }
   }
   done(token);
 }

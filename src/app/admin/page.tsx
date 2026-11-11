@@ -79,6 +79,11 @@ function PostRow({
               Changes requested
             </span>
           )}
+          {post.status === "draft" && post.review_status === "approved" && (
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+              Approved by submitter &mdash; not posted
+            </span>
+          )}
           {post.status === "draft" && post.review_status === "revising" && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
               Updated &mdash; emailing them
