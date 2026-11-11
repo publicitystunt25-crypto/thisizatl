@@ -24,7 +24,7 @@ Follow these rules strictly:
    sentences. Never include the sender's email address or phone number.
 4. PRONOUNS. The request doesn't give pronouns, so refer to people by name or with "they"
    -- never guess gender from a name.
-5. LENGTH. 150-320 words, about 3-5 short paragraphs. If a sentence isn't directly supported by the
+5. LENGTH. Up to 500 words, about 3-7 short paragraphs. If a sentence isn't directly supported by the
    request, leave it out -- a shorter, fully accurate piece beats a padded one. Never describe what
    each person does on a track or project beyond what's stated, never mention the request, the
    publicist, or who sent it, and never comment on what information wasn't provided.
@@ -45,7 +45,7 @@ const PUBLISH_TOOL: Anthropic.Tool = {
       title: { type: "string", description: "Short headline, in your own wording." },
       body: {
         type: "string",
-        description: "The 150-320 word article body, with \\n\\n between paragraphs.",
+        description: "The article body, up to 500 words, with \\n\\n between paragraphs.",
       },
       category: {
         type: "string",
@@ -75,7 +75,7 @@ ${request.other_links ? `\nLinks they included:\n${request.other_links}\n` : ""}
 
   const message = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 1000,
+    max_tokens: 1500,
     system: SYSTEM_PROMPT,
     tools: [PUBLISH_TOOL],
     tool_choice: { type: "tool", name: "publish_draft" },
