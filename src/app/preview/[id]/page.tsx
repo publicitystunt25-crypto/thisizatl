@@ -46,6 +46,8 @@ export default async function SharedDraftPreviewPage({
             title={post.title}
             body={post.body}
             sourcesJson={post.sources}
+            collabHandlesJson={post.collab_handles}
+            tagHandlesJson={post.tag_handles}
           />
         )}
       </main>

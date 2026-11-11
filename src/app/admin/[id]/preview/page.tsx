@@ -74,6 +74,8 @@ export default async function AdminPostPreviewPage({
             title={post.title}
             body={post.body}
             sourcesJson={post.sources}
+            collabHandlesJson={post.collab_handles}
+            tagHandlesJson={post.tag_handles}
           />
         )}
       </main>

@@ -1,22 +1,26 @@
 import Image from "next/image";
-import { getInstagramHandlesFromSources } from "@/lib/social";
+import { resolveInstagramHandles } from "@/lib/social";
 import { generateFeedCaption } from "@/lib/generate";
 
 // Mirrors the actual feed post: Claude generates the caption from the same
 // title/body/handle Accept All would use, so this is a true preview rather
-// than a guess -- not a static mock. Only attempted when there's a usable
-// Instagram handle, same requirement the real posting flow has. Shared by
-// both the admin draft preview and the public shareable draft link.
+// than a guess -- not a static mock. Stories without an Instagram account
+// still get a feed post, just with nobody to invite. Shared by both the admin
+// draft preview and the public shareable draft link.
 export default async function InstagramPostPreview({
   postId,
   title,
   body,
   sourcesJson,
+  collabHandlesJson,
+  tagHandlesJson,
 }: {
   postId: number;
   title: string;
   body: string;
   sourcesJson: string;
+  collabHandlesJson?: string | null;
+  tagHandlesJson?: string | null;
 }) {
   // The feed-image endpoint sends Cache-Control: no-store, but that's not
   // always honored by every layer between here and the viewer (the same
@@ -25,21 +29,24 @@ export default async function InstagramPostPreview({
   // into the image, well after the underlying code was already fixed). A
   // fresh timestamp per render guards against that regardless of the cause.
   const imageCacheBuster = Date.now();
-  const { instagramHandle, collaboratorHandles } = getInstagramHandlesFromSources(sourcesJson);
-
-  if (!instagramHandle) {
-    return (
-      <div className="mt-10 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-500">
-        No Instagram handle on this submission -- there&rsquo;s nobody to tag, so Accept All
-        will only publish to Facebook and the Instagram Story, not the feed.
-      </div>
-    );
+  const { instagramHandle, collaboratorHandles } = resolveInstagramHandles({
+    sources: sourcesJson,
+    collab_handles: collabHandlesJson ?? null,
+  });
+  let tagHandles: string[] = [];
+  try {
+    tagHandles = tagHandlesJson ? (JSON.parse(tagHandlesJson) as string[]) : [];
+  } catch {
+    tagHandles = [];
   }
+  const invited = new Set([instagramHandle, ...collaboratorHandles].filter(Boolean));
+  const toTag = tagHandles.filter((h) => !invited.has(h));
 
   let caption: string | null = null;
   let error: string | null = null;
   try {
     caption = await generateFeedCaption({ title, body, instagramHandle });
+    if (toTag.length) caption = `${caption}\n\n${toTag.map((h) => "@" + h).join(" ")}`;
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   }
@@ -61,10 +68,9 @@ export default async function InstagramPostPreview({
           />
         </div>
         <div className="space-y-2 px-3 py-3 text-sm text-zinc-800">
-          {collaboratorHandles.length > 0 && (
+          {(instagramHandle || collaboratorHandles.length > 0) && (
             <p className="text-xs text-zinc-500">
-              Collaborators: @{instagramHandle}
-              {collaboratorHandles.map((h) => `, @${h}`).join("")}
+              Collaborators: {[instagramHandle, ...collaboratorHandles].filter(Boolean).map((h) => "@" + h).join(", ")}
             </p>
           )}
           {error ? (
