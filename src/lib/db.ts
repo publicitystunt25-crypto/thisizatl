@@ -128,6 +128,10 @@ function ensureInit(): Promise<void> {
       );
 
       ALTER TABLE coverage_requests ADD COLUMN IF NOT EXISTS post_id INTEGER;
+      UPDATE posts p SET submitter_email = r.requester_email
+        FROM coverage_requests r
+        WHERE r.post_id = p.id AND p.status IN ('draft', 'scheduled')
+          AND (p.submitter_email IS NULL OR p.submitter_email = '');
 
       CREATE TABLE IF NOT EXISTS coverage_request_images (
         id SERIAL PRIMARY KEY,
