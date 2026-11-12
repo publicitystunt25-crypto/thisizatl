@@ -64,6 +64,11 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS revision_send_at TIMESTAMPTZ;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS hold_after_approval BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS collab_handles TEXT;
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS tag_handles TEXT;
 
       CREATE TABLE IF NOT EXISTS post_images (
@@ -1041,4 +1046,19 @@ export default pool;
 export async function setCollabHandles(id: number, handles: string[]): Promise<void> {
   await ensureInit();
   await pool.query(`UPDATE posts SET collab_handles = $2 WHERE id = $1`, [id, JSON.stringify(handles)]);
+}
+
+export async function getSetting(key: string): Promise<string | null> {
+  await ensureInit();
+  const res = await pool.query<{ value: string }>(`SELECT value FROM app_settings WHERE key = $1`, [key]);
+  return res.rows[0]?.value ?? null;
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+  await ensureInit();
+  await pool.query(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, now())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+    [key, value]
+  );
 }
