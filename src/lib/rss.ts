@@ -79,6 +79,44 @@ function looksMusicRelated(item: FeedItem): boolean {
   return MUSIC_KEYWORDS.some((kw) => t.includes(kw));
 }
 
+// Google News search feeds. NewsAPI's free tier only returns a handful of
+// recent stories for the local outlets, so this keeps fresh Atlanta music
+// stories flowing when that runs dry.
+const GOOGLE_NEWS_QUERIES = [
+  "atlanta rapper OR atlanta hip hop OR atlanta music when:2d",
+  "atlanta concert OR atlanta album OR atlanta festival OR atlanta singer when:2d",
+];
+
+function decodeXml(text: string): string {
+  return text
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+async function fetchGoogleNews(query: string): Promise<FeedItem[]> {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`Google News ${res.status}`);
+  const xml = await res.text();
+  const items: FeedItem[] = [];
+  for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+    const block = m[1];
+    const pick = (tag: string) => decodeXml(block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`))?.[1] ?? "");
+    const rawTitle = pick("title");
+    const source = pick("source") || "Google News";
+    const title = rawTitle.endsWith(` - ${source}`) ? rawTitle.slice(0, -(source.length + 3)) : rawTitle;
+    const link = pick("link");
+    if (!title || !link) continue;
+    items.push({ title, link, pubDate: pick("pubDate"), source });
+  }
+  return items;
+}
+
 export async function fetchAtlantaMusicFeed(): Promise<FeedItem[]> {
   const apiKey = process.env.NEWSAPI_KEY;
   if (!apiKey) {
@@ -110,9 +148,20 @@ export async function fetchAtlantaMusicFeed(): Promise<FeedItem[]> {
     ATLANTA_MENTION.test(item.title)
   );
 
+  const googleRaw = (
+    await Promise.all(
+      GOOGLE_NEWS_QUERIES.map((q) =>
+        fetchGoogleNews(q).catch((err) => {
+          console.error("Google News feed failed:", err);
+          return [] as FeedItem[];
+        })
+      )
+    )
+  ).flat();
+
   const seen = new Set<string>();
   const deduped: FeedItem[] = [];
-  for (const item of [...localRaw, ...nationalFiltered]) {
+  for (const item of [...localRaw, ...nationalFiltered, ...googleRaw]) {
     if (seen.has(item.link)) continue;
     seen.add(item.link);
     deduped.push(item);
