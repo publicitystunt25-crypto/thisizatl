@@ -72,10 +72,11 @@ export async function fitWholePhoto(imgBuffer: Buffer, targetW: number, targetH:
 }
 
 // True when a cover crop to the target box would throw away this much or more
-// of a photo's height (e.g. a 4:5 collage squeezed into a wide box).
+// of a photo's height (e.g. a 4:5 collage squeezed into a wide box), or 30%+ of its width.
 export function coverCropLosesTooMuch(srcW: number, srcH: number, targetW: number, targetH: number, limit = 0.25): boolean {
   const srcAspect = srcW / srcH;
   const targetAspect = targetW / targetH;
-  if (srcAspect >= targetAspect) return false;
+  // Very wide photos (a 16:9 graphic with a logo at each side) lose their edges instead of their height.
+  if (srcAspect >= targetAspect) return 1 - targetAspect / srcAspect >= 0.3;
   return 1 - srcAspect / targetAspect >= limit;
 }
