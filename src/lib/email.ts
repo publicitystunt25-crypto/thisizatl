@@ -539,6 +539,6 @@ ${siteUrl}/admin/clips`;
 export function submitterGreetingName(imageCredit: string | null, email: string | null): string {
   const credit = (imageCredit || "").trim();
   if (credit && !/[:/@]/.test(credit)) return credit;
-  const first = (email || "").split("@")[0].split(/[._-+d]+/)[0];
+  const first = (email || "").split("@")[0].split(/[._+\-\d]+/)[0];
   return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : "there";
 }
