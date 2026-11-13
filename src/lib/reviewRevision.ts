@@ -81,7 +81,7 @@ export async function applyReviewChanges(postId: number, note: string): Promise<
       {
         role: "user",
         content: `Current headline:\n${post.title}\n\nCurrent article:\n${post.body}\n\nTheir requested changes:\n${note}${
-          photos.length ? "\n\n(They also sent new photos; those are handled separately.)" : ""
+          photos.length ? "\n\n(They also attached new photos, so a short note like \"add these\" refers to the photos, not to the text; leave the text unchanged and leave not_done empty for it.)" : ""
         }`,
       },
     ],
@@ -133,6 +133,9 @@ export async function applyReviewChanges(postId: number, note: string): Promise<
   }
 
   const summary = summaryParts.join(" ");
+  // A note that only refers to the photos they attached ("add these please")
+  // has no text request, so the editor model's "unclear request" isn't a miss.
+  if (notDone && !edit.text_changed && used.length) notDone = "";
   if (notDone) return { ok: false, reason: notDone, summary };
   if (!summary) return { ok: false, reason: "I couldn't tell what to change from their message.", summary };
   return { ok: true, summary };
