@@ -40,7 +40,7 @@ import {
   deleteFacebookPost,
 } from "@/lib/social";
 import { generateFeedCaption } from "@/lib/generate";
-import { sendArticleLiveNotification, sendArticlePreviewEmail } from "@/lib/email";
+import { sendArticleLiveNotification, sendArticlePreviewEmail, submitterGreetingName } from "@/lib/email";
 import { publishPostNow } from "@/lib/publishPost";
 import { fromEasternDatetimeLocalValue } from "@/lib/date";
 import { processImageUpload } from "@/lib/image";
@@ -408,7 +408,7 @@ export async function emailPreviewAction(id: number): Promise<void> {
   const token = await ensureReviewToken(post.id);
   const sent = await sendArticlePreviewEmail(
     post.submitter_email,
-    post.image_credit || "there",
+    submitterGreetingName(post.image_credit, post.submitter_email),
     post.title,
     `${siteUrl}/review/${token}`
   );

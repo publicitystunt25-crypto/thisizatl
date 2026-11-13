@@ -532,3 +532,13 @@ ${siteUrl}/admin/clips`;
     console.error("Clip submission notification email failed:", res.status, body);
   }
 }
+
+// Who the review emails say "Hey ..." to. For submissions the photo credit field
+// holds the person's name; when it's a real photo credit ("Image: ...") or empty,
+// fall back to the first name in their email address ("Suzanne_Forte@..." -> "Suzanne").
+export function submitterGreetingName(imageCredit: string | null, email: string | null): string {
+  const credit = (imageCredit || "").trim();
+  if (credit && !/[:/@]/.test(credit)) return credit;
+  const first = (email || "").split("@")[0].split(/[._-+d]+/)[0];
+  return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : "there";
+}

@@ -12,7 +12,7 @@ import {
   markPreviewEmailed,
 } from "./db";
 import { processImageUpload } from "./image";
-import { sendArticleUpdatedEmail } from "./email";
+import { sendArticleUpdatedEmail, submitterGreetingName } from "./email";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-5";
@@ -164,7 +164,7 @@ export async function sendDueRevisionEmails(): Promise<number> {
       const token = await ensureReviewToken(id);
       const ok = await sendArticleUpdatedEmail(
         post.submitter_email,
-        post.image_credit || "there",
+        submitterGreetingName(post.image_credit, post.submitter_email),
         post.title,
         `${siteUrl}/review/${token}`
       );
