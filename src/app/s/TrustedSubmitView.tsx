@@ -11,12 +11,13 @@ export default function TrustedSubmitView({ submitter }: { submitter: TrustedSub
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
       <main className="mx-auto w-full max-w-xl flex-1 px-6 py-12">
-        <h1 className="font-display text-3xl font-bold text-ink sm:text-4xl">Submit a Story</h1>
+        <h1 className="font-display text-3xl font-bold text-ink sm:text-4xl">Request Coverage</h1>
         <p className="mt-3 text-[16px] leading-relaxed text-zinc-600">
-          Hi {submitter.name.split(" ")[0]}. Fill this out for the artist or person you want featured and we&rsquo;ll
-          write it up. When you submit, the approval link is emailed straight to you. Review it, approve it, and it
-          goes live.
+          Have an artist spotlight, premiere or feature you want ThisIzATL to cover? Tell us about them below
+          and we&rsquo;ll write it up. As soon as you submit, the approval link is emailed straight to you.
+          Review it, approve it, and it goes live.
         </p>
+
         <SubmitForm trustedToken={submitter.token} />
       </main>
       <SiteFooter />

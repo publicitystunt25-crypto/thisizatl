@@ -5,7 +5,7 @@ import { getTrustedSubmitterBySlug } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Submit a Story",
+  title: "Request Coverage",
   robots: { index: false, follow: false },
 };
 
