@@ -1,13 +1,52 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { insertPost, setPostImage, addPostImages, hasRecentSubmissionByArtist } from "@/lib/db";
+import {
+  insertPost,
+  setPostImage,
+  addPostImages,
+  hasRecentSubmissionByArtist,
+  getTrustedSubmitter,
+  getPostById,
+  ensureReviewToken,
+  markPreviewEmailed,
+  type TrustedSubmitter,
+} from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { processImageUpload } from "@/lib/image";
 import { generateSpotlightArticle, ArtistSubmission } from "@/lib/spotlight";
 import { generateProfileArticle, ProfileSubmission } from "@/lib/profile";
-import { sendSubmissionNotification, sendOtherSubmissionNotification } from "@/lib/email";
+import {
+  sendSubmissionNotification,
+  sendOtherSubmissionNotification,
+  sendArticlePreviewEmail,
+} from "@/lib/email";
 import { normalizeInstagramInput, isInstagramUrl } from "@/lib/social";
+
+function thanksPath(trusted: TrustedSubmitter | null): string {
+  return trusted ? `/s/${trusted.token}/thanks` : "/submit/thanks";
+}
+
+// For a trusted submitter's private link the approval email goes straight to
+// them, with no admin step: they open the review link, approve, and it goes
+// live. Anyone else's submission just waits in the admin as before.
+async function sendTrustedApproval(postId: number, trusted: TrustedSubmitter | null): Promise<void> {
+  if (!trusted) return;
+  try {
+    const siteUrl = (process.env.SITE_URL || "https://thisizatl.com").replace(/\/$/, "");
+    const post = await getPostById(postId);
+    const token = await ensureReviewToken(postId);
+    const sent = await sendArticlePreviewEmail(
+      trusted.email,
+      trusted.name.split(" ")[0] || "there",
+      post?.title ?? "Your article",
+      `${siteUrl}/review/${token}`
+    );
+    if (sent) await markPreviewEmailed(postId);
+  } catch (err) {
+    console.error("Trusted approval email failed:", err);
+  }
+}
 
 function required(formData: FormData, field: string): string {
   const value = String(formData.get(field) || "").trim();
@@ -64,7 +103,7 @@ async function saveSubmissionPhotos(postId: number, photos: File[], credit: stri
   }
 }
 
-export async function submitArtistAction(formData: FormData): Promise<void> {
+async function artistCore(formData: FormData, trusted: TrustedSubmitter | null): Promise<void> {
   // Honeypot: real visitors never see or fill this field (hidden via CSS),
   // so anything in it means an automated bot filled out every input blindly.
   if (String(formData.get("company") || "").trim()) {
@@ -101,7 +140,7 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
     anythingElse: optional(formData, "anythingElse"),
   };
 
-  const submitterEmail = required(formData, "submitterEmail");
+  const submitterEmail = trusted ? trusted.email : required(formData, "submitterEmail");
 
   const photos = readPhotos(formData);
 
@@ -111,7 +150,7 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   // treat this as a duplicate: skip the Claude call and DB insert entirely,
   // but still show the normal "thanks" confirmation so it doesn't look broken.
   if (await hasRecentSubmissionByArtist(submission.artistName)) {
-    redirect("/submit/thanks");
+    redirect(thanksPath(trusted));
   }
 
   const article = await generateSpotlightArticle(submission);
@@ -144,6 +183,7 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
   });
 
   await saveSubmissionPhotos(id, photos, submission.artistName);
+  await sendTrustedApproval(id, trusted);
 
   try {
     await sendSubmissionNotification(submission, id, collaboratorUrls);
@@ -151,10 +191,10 @@ export async function submitArtistAction(formData: FormData): Promise<void> {
     console.error("Submission notification email failed:", err);
   }
 
-  redirect("/submit/thanks");
+  redirect(thanksPath(trusted));
 }
 
-export async function submitOtherAction(formData: FormData): Promise<void> {
+async function otherCore(formData: FormData, trusted: TrustedSubmitter | null): Promise<void> {
   // Honeypot: real visitors never see or fill this field (hidden via CSS),
   // so anything in it means an automated bot filled out every input blindly.
   if (String(formData.get("company") || "").trim()) {
@@ -191,13 +231,13 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
     anythingElse: optional(formData, "anythingElse"),
   };
 
-  const submitterEmail = required(formData, "submitterEmail");
+  const submitterEmail = trusted ? trusted.email : required(formData, "submitterEmail");
 
   const photos = readPhotos(formData);
 
   // Same duplicate-submission guard as the artist path, keyed by name.
   if (await hasRecentSubmissionByArtist(submission.name)) {
-    redirect("/submit/thanks");
+    redirect(thanksPath(trusted));
   }
 
   const article = await generateProfileArticle(submission);
@@ -230,6 +270,7 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
   });
 
   await saveSubmissionPhotos(id, photos, submission.name);
+  await sendTrustedApproval(id, trusted);
 
   try {
     await sendOtherSubmissionNotification(submission, id, collaboratorUrls);
@@ -237,5 +278,27 @@ export async function submitOtherAction(formData: FormData): Promise<void> {
     console.error("Submission notification email failed:", err);
   }
 
-  redirect("/submit/thanks");
+  redirect(thanksPath(trusted));
+}
+
+export async function submitArtistAction(formData: FormData): Promise<void> {
+  return artistCore(formData, null);
+}
+
+export async function submitOtherAction(formData: FormData): Promise<void> {
+  return otherCore(formData, null);
+}
+
+// Private-link versions: the token in the link decides who the submitter is
+// (and where the approval email goes), never anything in the form.
+export async function submitTrustedArtistAction(token: string, formData: FormData): Promise<void> {
+  const trusted = await getTrustedSubmitter(token);
+  if (!trusted) throw new Error("This submit link isn't valid");
+  return artistCore(formData, trusted);
+}
+
+export async function submitTrustedOtherAction(token: string, formData: FormData): Promise<void> {
+  const trusted = await getTrustedSubmitter(token);
+  if (!trusted) throw new Error("This submit link isn't valid");
+  return otherCore(formData, trusted);
 }

@@ -64,6 +64,14 @@ function ensureInit(): Promise<void> {
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS revision_send_at TIMESTAMPTZ;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS hold_after_approval BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS collab_handles TEXT;
+      CREATE TABLE IF NOT EXISTS trusted_submitters (
+        id SERIAL PRIMARY KEY,
+        token TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS app_settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
@@ -1061,4 +1069,22 @@ export async function setSetting(key: string, value: string): Promise<void> {
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
     [key, value]
   );
+}
+
+// A publicist (or other partner) with a private submit link: their stories skip
+// the admin and the approval email goes straight to them.
+export interface TrustedSubmitter {
+  token: string;
+  name: string;
+  email: string;
+}
+
+export async function getTrustedSubmitter(token: string): Promise<TrustedSubmitter | null> {
+  await ensureInit();
+  if (!token || token.length < 16) return null;
+  const res = await pool.query<TrustedSubmitter>(
+    `SELECT token, name, email FROM trusted_submitters WHERE token = $1 AND active`,
+    [token]
+  );
+  return res.rows[0] ?? null;
 }

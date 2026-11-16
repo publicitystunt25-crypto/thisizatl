@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { submitArtistAction, submitOtherAction } from "./actions";
+import { submitArtistAction, submitOtherAction, submitTrustedArtistAction, submitTrustedOtherAction } from "./actions";
 import SubmitButton from "./SubmitButton";
 import { useFormDraft, ARTIST_DRAFT_KEY, OTHER_DRAFT_KEY } from "./formDraft";
 
@@ -136,7 +136,9 @@ function PhotoField() {
   );
 }
 
-function FollowAndEmailFields() {
+function FollowAndEmailFields({ trustedToken }: { trustedToken?: string }) {
+  // A private-link submitter's email comes from the link, so there's nothing to ask.
+  if (trustedToken) return null;
   return (
     <>
       <div>
@@ -155,7 +157,7 @@ function FollowAndEmailFields() {
   );
 }
 
-function ArtistFields() {
+function ArtistFields({ trustedToken }: { trustedToken?: string }) {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const formRef = useFormDraft(ARTIST_DRAFT_KEY);
 
@@ -172,7 +174,7 @@ function ArtistFields() {
   return (
     <form
       ref={formRef}
-      action={submitArtistAction}
+      action={trustedToken ? submitTrustedArtistAction.bind(null, trustedToken) : submitArtistAction}
       onSubmit={handleSubmit}
       encType="multipart/form-data"
       className="mt-8 space-y-5"
@@ -277,7 +279,7 @@ function ArtistFields() {
       <PhotoField />
       {photoError && <PhotoSizeError message={photoError} />}
 
-      <FollowAndEmailFields />
+      <FollowAndEmailFields trustedToken={trustedToken} />
 
       <InstagramAndCollabFields />
 
@@ -286,7 +288,7 @@ function ArtistFields() {
   );
 }
 
-function OtherFields() {
+function OtherFields({ trustedToken }: { trustedToken?: string }) {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const formRef = useFormDraft(OTHER_DRAFT_KEY);
 
@@ -303,7 +305,7 @@ function OtherFields() {
   return (
     <form
       ref={formRef}
-      action={submitOtherAction}
+      action={trustedToken ? submitTrustedOtherAction.bind(null, trustedToken) : submitOtherAction}
       onSubmit={handleSubmit}
       encType="multipart/form-data"
       className="mt-8 space-y-5"
@@ -406,7 +408,7 @@ function OtherFields() {
       <PhotoField />
       {photoError && <PhotoSizeError message={photoError} />}
 
-      <FollowAndEmailFields />
+      <FollowAndEmailFields trustedToken={trustedToken} />
 
       <InstagramAndCollabFields />
 
@@ -415,7 +417,7 @@ function OtherFields() {
   );
 }
 
-export default function SubmitForm() {
+export default function SubmitForm({ trustedToken }: { trustedToken?: string } = {}) {
   const [type, setType] = useState<"artist" | "other" | null>(null);
 
   return (
@@ -444,8 +446,8 @@ export default function SubmitForm() {
         </div>
       </div>
 
-      {type === "artist" && <ArtistFields />}
-      {type === "other" && <OtherFields />}
+      {type === "artist" && <ArtistFields trustedToken={trustedToken} />}
+      {type === "other" && <OtherFields trustedToken={trustedToken} />}
     </div>
   );
 }
