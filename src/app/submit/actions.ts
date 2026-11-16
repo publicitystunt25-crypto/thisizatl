@@ -8,6 +8,8 @@ import {
   hasRecentSubmissionByArtist,
   getTrustedSubmitter,
   getPostById,
+  insertCoverageRequest,
+  setCoverageRequestPost,
   ensureReviewToken,
   markPreviewEmailed,
   type TrustedSubmitter,
@@ -45,6 +47,39 @@ async function sendTrustedApproval(postId: number, trusted: TrustedSubmitter | n
     if (sent) await markPreviewEmailed(postId);
   } catch (err) {
     console.error("Trusted approval email failed:", err);
+  }
+}
+
+// Shows a trusted partner's submission in the admin's Coverage Requests box,
+// marked with their name, already accepted and linked to the draft.
+async function logTrustedRequest(
+  postId: number,
+  trusted: TrustedSubmitter | null,
+  subjectName: string,
+  instagramUrl: string | null,
+  kind: string
+): Promise<void> {
+  if (!trusted) return;
+  try {
+    const id = await insertCoverageRequest({
+      requester_name: trusted.name,
+      requester_email: trusted.email,
+      requester_phone: null,
+      organization: trusted.name.split(" ")[0],
+      role: "Publicist / PR",
+      subject_name: subjectName,
+      subject_instagram: instagramUrl,
+      request_type: kind,
+      details: `Submitted through ${trusted.name.split(" ")[0]}'s private link. The draft article was written automatically and the approval email went straight to ${trusted.name.split(" ")[0]}.`,
+      event_date: null,
+      deadline: null,
+      press_kit_url: null,
+      other_links: null,
+      collab_instagrams: null,
+    });
+    await setCoverageRequestPost(id, postId);
+  } catch (err) {
+    console.error("Logging trusted request failed:", err);
   }
 }
 
@@ -184,6 +219,7 @@ async function artistCore(formData: FormData, trusted: TrustedSubmitter | null):
 
   await saveSubmissionPhotos(id, photos, submission.artistName);
   await sendTrustedApproval(id, trusted);
+  await logTrustedRequest(id, trusted, submission.artistName, submission.instagramUrl, "Artist spotlight");
 
   try {
     await sendSubmissionNotification(submission, id, collaboratorUrls);
@@ -271,6 +307,7 @@ async function otherCore(formData: FormData, trusted: TrustedSubmitter | null): 
 
   await saveSubmissionPhotos(id, photos, submission.name);
   await sendTrustedApproval(id, trusted);
+  await logTrustedRequest(id, trusted, submission.name, submission.instagramUrl, "Website feature");
 
   try {
     await sendOtherSubmissionNotification(submission, id, collaboratorUrls);
