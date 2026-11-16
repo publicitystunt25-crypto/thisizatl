@@ -72,6 +72,7 @@ function ensureInit(): Promise<void> {
         active BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE trusted_submitters ADD COLUMN IF NOT EXISTS slug TEXT;
       CREATE TABLE IF NOT EXISTS app_settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
@@ -1085,6 +1086,16 @@ export async function getTrustedSubmitter(token: string): Promise<TrustedSubmitt
   const res = await pool.query<TrustedSubmitter>(
     `SELECT token, name, email FROM trusted_submitters WHERE token = $1 AND active`,
     [token]
+  );
+  return res.rows[0] ?? null;
+}
+
+// A public vanity link (thisizatl.com/<slug>) for a trusted submitter.
+export async function getTrustedSubmitterBySlug(slug: string): Promise<TrustedSubmitter | null> {
+  await ensureInit();
+  const res = await pool.query<TrustedSubmitter>(
+    `SELECT token, name, email FROM trusted_submitters WHERE slug = $1 AND active`,
+    [slug]
   );
   return res.rows[0] ?? null;
 }
