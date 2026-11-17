@@ -105,7 +105,9 @@ export async function sendArticleLiveNotification(
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !to) return;
 
-  const url = `${process.env.SITE_URL || "https://thisizatl.com"}/posts/${slug}`;
+  const siteUrl = (process.env.SITE_URL || "https://thisizatl.com").replace(//$/, "");
+  const url = `${siteUrl}/posts/${slug}`;
+  const nominateUrl = `${siteUrl}/nominate`;
 
   const text = `Hey ${artistName},
 
@@ -115,6 +117,9 @@ Your feature is live on ThisIzATL!
 ${url}
 
 Feel free to share the link with your fans, and follow and tag ThisIzATL on Instagram @ThisizATL.
+
+Nominate a friend
+${nominateUrl}
 
 -- ThisIzATL`;
 
