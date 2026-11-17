@@ -123,6 +123,15 @@ ${nominateUrl}
 
 -- ThisIzATL`;
 
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#111">
+<p>Hey ${esc(artistName)},</p>
+<p>Your feature is live on <strong>ThisIzATL</strong>!</p>
+<p>&ldquo;${esc(title)}&rdquo;<br><a href="${url}">${url}</a></p>
+<p>Feel free to share the link with your fans, and follow and tag ThisIzATL on Instagram <a href="https://www.instagram.com/thisizatl/">@ThisizATL</a>.</p>
+<p><strong>Nominate a friend</strong><br><a href="${nominateUrl}">${nominateUrl}</a></p>
+<p>-- ThisIzATL</p></div>`;
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -134,6 +143,7 @@ ${nominateUrl}
       to,
       subject: `Your ThisIzATL feature is live: ${title}`,
       text,
+      html,
     }),
   });
 

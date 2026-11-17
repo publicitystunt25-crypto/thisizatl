@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
-import NominateForm from "./NominateForm";
+import NominateChoices from "./NominateChoices";
 
 export const metadata: Metadata = {
   title: "Nominate Someone",
@@ -19,11 +19,10 @@ export default function NominatePage() {
         </h1>
         <p className="mt-3 text-[16px] leading-relaxed text-zinc-600">
           Nominate an artist, creator, or local figure doing great things in
-          Atlanta. Just tell us who they are &mdash; add their email or
-          Instagram if you have it so we can reach them.
+          Atlanta. Choose how you&rsquo;d like to nominate them below.
         </p>
 
-        <NominateForm />
+        <NominateChoices submitUrl="https://thisizatl.com/submit" brandName="ThisIzATL" placeName="Atlanta" />
       </main>
 
       <SiteFooter />

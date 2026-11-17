@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: "Atlanta artists and local figures: submit your story and get featured on ThisIzATL.",
 };
 
-export default function SubmitPage() {
+export default async function SubmitPage({ searchParams }: { searchParams: Promise<{ for?: string }> }) {
+  const forFriend = (await searchParams).for === "friend";
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
@@ -31,6 +32,13 @@ export default function SubmitPage() {
           </a>{" "}
           instead.
         </p>
+
+        {forFriend && (
+          <p className="mt-4 rounded-lg bg-zinc-50 p-3 text-sm text-zinc-700">
+            You&rsquo;re submitting on a friend&rsquo;s behalf. Use <strong>their</strong> name, links and
+            details below, and their email if you have it so we can let them know when it&rsquo;s live.
+          </p>
+        )}
 
         <SubmitForm />
       </main>
