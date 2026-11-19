@@ -25,6 +25,7 @@ type Clip = {
   key: string;
   name: string;
   file: File;
+  duration: number | null;
   state: "queued" | "uploading" | "done" | "error";
   progress: number;
   publicId?: string;
@@ -88,6 +89,9 @@ export default function CarouselBuilder() {
   const [headline, setHeadline] = useState(DEFAULT_HEADLINE);
   const [caption, setCaption] = useState(DEFAULT_CAPTION);
   const [collabs, setCollabs] = useState(["", "", ""]);
+  const [coverSource, setCoverSource] = useState<"plain" | "photo" | "clip">("clip");
+  const [coverClipKey, setCoverClipKey] = useState<string>("");
+  const [coverTime, setCoverTime] = useState(1);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -156,7 +160,7 @@ export default function CarouselBuilder() {
         setError(`${file.name} is ${Math.round(duration)} seconds. Keep clips to ${MAX_SLIDE_SECONDS} seconds or less.`);
         continue;
       }
-      added.push({ key: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: file.name, file, state: "queued", progress: 0 });
+      added.push({ key: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: file.name, file, duration, state: "queued", progress: 0 });
     }
     if (added.length) setClips((list) => [...list, ...added]);
   }
@@ -177,7 +181,11 @@ export default function CarouselBuilder() {
     try {
       const fd = new FormData();
       fd.append("headline", headline);
-      if (coverFile) fd.append("coverPhoto", coverFile);
+      const problem = addCoverFields(fd);
+      if (problem) {
+        setError(problem);
+        return;
+      }
       const res = await previewCarouselCoverAction(fd);
       if (!res.ok) setError(res.error);
       else setCoverPreview(res.dataUrl);
@@ -186,6 +194,19 @@ export default function CarouselBuilder() {
     } finally {
       setPreviewing(false);
     }
+  }
+
+  const uploadedClips = clips.filter((c) => c.state === "done" && c.publicId);
+  const coverClip = uploadedClips.find((c) => c.key === coverClipKey) ?? uploadedClips[0];
+
+  function addCoverFields(fd: FormData): string | null {
+    if (coverSource === "photo" && coverFile) fd.append("coverPhoto", coverFile);
+    if (coverSource === "clip") {
+      if (!coverClip) return "Upload a clip first, then pick the frame for the cover.";
+      fd.append("coverClip", coverClip.publicId as string);
+      fd.append("coverTime", String(coverTime));
+    }
+    return null;
   }
 
   const allUploaded = clips.length > 0 && clips.every((c) => c.state === "done");
@@ -201,12 +222,16 @@ export default function CarouselBuilder() {
       const fd = new FormData();
       fd.append("headline", headline);
       fd.append("caption", caption);
-      if (coverFile) fd.append("coverPhoto", coverFile);
+      const problem = addCoverFields(fd);
+      if (problem) {
+        setError(problem);
+        return;
+      }
       for (const c of clips) fd.append("clip", c.publicId as string);
       for (const h of collabs) if (h.trim()) fd.append("collab", h);
       const res = await postCarouselAction(fd);
       if (!res.ok) setError(res.error);
-      else setStatus({ state: "posting", message: "Starting", startedAt: Date.now() });
+      else setStatus({ state: "posting", message: "Starting" });
     } catch {
       setError("Something went wrong starting the post.");
     } finally {
@@ -232,18 +257,79 @@ export default function CarouselBuilder() {
           />
         </div>
         <div>
-          <label className={labelClasses}>Cover photo (optional)</label>
-          <input
-            type="file"
-            accept="image/*"
+          <label className={labelClasses}>Cover picture</label>
+          <select
+            value={coverSource}
             onChange={(e) => {
-              setCoverFile(e.target.files?.[0] ?? null);
+              setCoverSource(e.target.value as "plain" | "photo" | "clip");
               setCoverPreview(null);
             }}
-            className="mt-1 block w-full text-sm text-zinc-600"
-          />
-          <p className="mt-1 text-xs text-zinc-500">Leave empty for a dark ThisIzATL card with just the headline.</p>
+            className={inputClasses}
+          >
+            <option value="clip">A frame from one of my clips</option>
+            <option value="photo">A photo I upload</option>
+            <option value="plain">Plain ThisIzATL card (headline only)</option>
+          </select>
         </div>
+        {coverSource === "photo" && (
+          <div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                setCoverFile(e.target.files?.[0] ?? null);
+                setCoverPreview(null);
+              }}
+              className="block w-full text-sm text-zinc-600"
+            />
+          </div>
+        )}
+        {coverSource === "clip" && (
+          <div className="space-y-3">
+            {uploadedClips.length === 0 ? (
+              <p className="text-sm text-zinc-500">Add your clips below first. Once one finishes uploading you can pick the frame here.</p>
+            ) : (
+              <>
+                <div>
+                  <label className={labelClasses}>Which clip</label>
+                  <select
+                    value={coverClip?.key ?? ""}
+                    onChange={(e) => {
+                      setCoverClipKey(e.target.value);
+                      setCoverPreview(null);
+                    }}
+                    className={inputClasses}
+                  >
+                    {uploadedClips.map((c) => (
+                      <option key={c.key} value={c.key}>
+                        Clip {clips.indexOf(c) + 1}: {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClasses}>Moment in the clip (seconds)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={coverClip?.duration ? Math.max(0, Math.floor(coverClip.duration * 10) / 10 - 0.2) : 600}
+                    step={0.5}
+                    value={coverTime}
+                    onChange={(e) => {
+                      setCoverTime(Number(e.target.value) || 0);
+                      setCoverPreview(null);
+                    }}
+                    className={inputClasses}
+                  />
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {coverClip?.duration ? `That clip is ${Math.round(coverClip.duration * 10) / 10} seconds. ` : ""}
+                    Change the time and press Preview until you like the frame.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <button
           type="button"
           onClick={previewCover}

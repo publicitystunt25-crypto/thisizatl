@@ -63,9 +63,9 @@ export async function fetchUploadedVideo(
   return { secure_url: data.secure_url, duration: data.duration ?? null, bytes: data.bytes ?? 0 };
 }
 
-// One still frame from a clip (1 second in), used to build the Reel cover.
-export function clipFrameUrl(config: CloudinaryConfig, publicId: string): string {
-  return `https://res.cloudinary.com/${config.cloudName}/video/upload/so_1,w_1080,c_limit/${publicId}.jpg`;
+// One still frame from a clip (1 second in unless told otherwise), used to build covers.
+export function clipFrameUrl(config: CloudinaryConfig, publicId: string, seconds = 1): string {
+  return `https://res.cloudinary.com/${config.cloudName}/video/upload/so_${seconds},w_1080,c_limit/${publicId}.jpg`;
 }
 
 // ---------------------------------------------------------------------------

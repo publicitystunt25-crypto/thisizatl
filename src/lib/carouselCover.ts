@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs/promises";
 import sharp from "sharp";
-import { cropToFocus } from "@/lib/crop";
+import { cropToFocus, fitWholePhoto } from "@/lib/crop";
 import { escapeXml, wrapText, fitsWithinLines } from "@/lib/textOverlay";
 import { BRAND_ORANGE, WORDMARK_WIDTH } from "@/lib/coverLayout";
 
@@ -19,7 +19,13 @@ const TIERS = [
   { fontSize: 60, lineHeight: 72, maxCharsPerLine: 28, maxLines: 5 },
 ];
 
-export async function renderCarouselCover(photo: Buffer | null, headline: string): Promise<Buffer> {
+// fromVideo: the picture is a still from a clip. A widescreen still is shown
+// whole over a blurred copy of itself instead of being cropped to a sliver.
+export async function renderCarouselCover(
+  photo: Buffer | null,
+  headline: string,
+  opts: { fromVideo?: boolean } = {}
+): Promise<Buffer> {
   const W = CAROUSEL_WIDTH;
   const H = CAROUSEL_HEIGHT;
 
@@ -28,8 +34,15 @@ export async function renderCarouselCover(photo: Buffer | null, headline: string
     fs.readFile(path.join(process.cwd(), "public/wordmark.png")),
   ]);
 
+  let landscape = false;
+  if (photo && opts.fromVideo) {
+    const meta = await sharp(photo).metadata();
+    landscape = (meta.width ?? 1) > (meta.height ?? 1);
+  }
   const base = photo
-    ? await cropToFocus(photo, W, H, null)
+    ? landscape
+      ? await fitWholePhoto(photo, W, H)
+      : await cropToFocus(photo, W, H, null)
     : await sharp({ create: { width: W, height: H, channels: 3, background: "#0a0a0a" } })
         .jpeg()
         .toBuffer();

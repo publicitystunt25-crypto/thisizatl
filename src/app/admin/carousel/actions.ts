@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { requireAdmin } from "@/lib/auth";
 import {
   cloudinaryConfig,
+  clipFrameUrl,
   createUploadSignature,
   deleteClipAssets,
   deleteImageAsset,
@@ -15,6 +16,7 @@ import { renderCarouselCover } from "@/lib/carouselCover";
 import { postVideoCarousel, MAX_CAROUSEL_SLIDES } from "@/lib/videoCarousel";
 import { extractInstagramHandle, normalizeInstagramInput } from "@/lib/social";
 import { MAX_HEADLINE_LENGTH } from "@/lib/coverLayout";
+import { CLIP_FOLDER } from "@/app/clip/limits";
 
 const STATUS_KEY = "video_carousel_status";
 // Longest clip allowed as a carousel slide. Kept conservative on purpose.
@@ -65,6 +67,22 @@ async function readCoverPhoto(formData: FormData): Promise<Buffer | null> {
   return sharp(Buffer.from(await file.arrayBuffer())).rotate().jpeg({ quality: 92 }).toBuffer();
 }
 
+// The cover picture: a still from one of the uploaded clips (coverClip +
+// coverTime), else an uploaded photo, else none (plain card).
+async function readCoverImage(formData: FormData): Promise<{ image: Buffer | null; fromVideo: boolean }> {
+  const clip = String(formData.get("coverClip") || "");
+  if (clip) {
+    const config = cloudinaryConfig();
+    if (!config) throw new Error("Cloudinary isn't configured.");
+    if (!clip.startsWith(CLIP_FOLDER + "/")) throw new Error("That clip can't be used for the cover.");
+    const seconds = Math.min(600, Math.max(0, Number(formData.get("coverTime")) || 0));
+    const res = await fetch(clipFrameUrl(config, clip, Math.round(seconds * 10) / 10));
+    if (!res.ok) throw new Error("Couldn't pull a frame from that clip. Try a different moment.");
+    return { image: Buffer.from(await res.arrayBuffer()), fromVideo: true };
+  }
+  return { image: await readCoverPhoto(formData), fromVideo: false };
+}
+
 function cleanHeadline(raw: string): string {
   return raw.replace(/\s+/g, " ").trim().slice(0, MAX_HEADLINE_LENGTH);
 }
@@ -76,8 +94,8 @@ export async function previewCarouselCoverAction(formData: FormData): Promise<Pr
   try {
     const headline = cleanHeadline(String(formData.get("headline") || ""));
     if (!headline) return { ok: false, error: "Add a headline for the cover first." };
-    const photo = await readCoverPhoto(formData);
-    const cover = await renderCarouselCover(photo, headline);
+    const { image, fromVideo } = await readCoverImage(formData);
+    const cover = await renderCarouselCover(image, headline, { fromVideo });
     return { ok: true, dataUrl: `data:image/jpeg;base64,${cover.toString("base64")}` };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Couldn't build the cover." };
@@ -132,14 +150,15 @@ export async function postCarouselAction(formData: FormData): Promise<PostResult
   }
 
   let photo: Buffer | null;
+  let fromVideo = false;
   try {
-    photo = await readCoverPhoto(formData);
+    ({ image: photo, fromVideo } = await readCoverImage(formData));
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Couldn't read the cover photo." };
   }
 
   await writeStatus({ state: "posting", message: "Starting", startedAt: Date.now() });
-  void runCarouselPost({ headline, caption, collaborators, publicIds, videoUrls, photo });
+  void runCarouselPost({ headline, caption, collaborators, publicIds, videoUrls, photo, fromVideo });
   return { ok: true };
 }
 
@@ -150,6 +169,7 @@ async function runCarouselPost(job: {
   publicIds: string[];
   videoUrls: string[];
   photo: Buffer | null;
+  fromVideo: boolean;
 }): Promise<void> {
   const config = cloudinaryConfig();
   const startedAt = Date.now();
@@ -158,7 +178,7 @@ async function runCarouselPost(job: {
   try {
     if (!config) throw new Error("Cloudinary isn't configured.");
     progress("Building the cover slide");
-    const cover = await renderCarouselCover(job.photo, job.headline);
+    const cover = await renderCarouselCover(job.photo, job.headline, { fromVideo: job.fromVideo });
     const uploaded = await uploadImageBuffer(config, cover, "thisizatl/carousel-covers");
     coverPublicId = uploaded.publicId;
 
