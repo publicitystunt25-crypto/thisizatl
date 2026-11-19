@@ -35,7 +35,7 @@ async function createReelContainer(
 // it can be published, which takes anywhere from seconds to a few minutes --
 // so this polls for much longer than the photo flow does, and throws on a
 // timeout instead of publishing something that isn't ready.
-async function waitForReelReady(creationId: string, token: string, maxWaitMs: number): Promise<void> {
+export async function waitForReelReady(creationId: string, token: string, maxWaitMs: number): Promise<void> {
   const deadline = Date.now() + maxWaitMs;
   while (Date.now() < deadline) {
     const res = await fetch(

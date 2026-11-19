@@ -352,6 +352,12 @@ export default async function AdminDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <Link
+              href="/admin/carousel"
+              className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Video Carousel
+            </Link>
+            <Link
               href="/admin/clips"
               className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >

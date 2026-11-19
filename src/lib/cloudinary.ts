@@ -197,3 +197,42 @@ export async function deleteClipAssets(config: CloudinaryConfig, publicId: strin
   );
   if (!res.ok) console.error("Cloudinary delete failed:", res.status, await res.text());
 }
+
+// Uploads an image from the server (signed with the API secret) and returns
+// its public URL, so Instagram can fetch it. Used for the cover slide of a
+// video carousel, which is rendered here rather than uploaded by a browser.
+export async function uploadImageBuffer(
+  config: CloudinaryConfig,
+  data: Buffer,
+  folder: string
+): Promise<{ publicId: string; url: string }> {
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const signature = signParams({ folder, timestamp }, config.apiSecret);
+  const body = new FormData();
+  body.append("file", new Blob([new Uint8Array(data)], { type: "image/jpeg" }), "cover.jpg");
+  body.append("api_key", config.apiKey);
+  body.append("timestamp", timestamp);
+  body.append("folder", folder);
+  body.append("signature", signature);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`, {
+    method: "POST",
+    body,
+  });
+  if (!res.ok) throw new Error(`Cover upload failed: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { public_id: string; secure_url: string };
+  return { publicId: json.public_id, url: json.secure_url };
+}
+
+export async function deleteImageAsset(config: CloudinaryConfig, publicId: string): Promise<void> {
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${config.cloudName}/resources/image/upload?public_ids[]=${encodeURIComponent(publicId)}&invalidate=true`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization:
+          "Basic " + Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString("base64"),
+      },
+    }
+  );
+  if (!res.ok) console.error("Cloudinary image delete failed:", res.status, await res.text());
+}
