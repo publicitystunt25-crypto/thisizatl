@@ -13,7 +13,7 @@ import {
 import { parseHandleList } from "@/lib/social";
 import { processImageUpload } from "@/lib/image";
 import { applyReviewChanges, scheduleRevisionEmail } from "@/lib/reviewRevision";
-import { publishPostNow } from "@/lib/publishPost";
+import { publishPostNow, shareToInstagramFeedInBackground } from "@/lib/publishPost";
 import { sendReviewResponseNotification } from "@/lib/email";
 import { formatDateTime, fromEasternDatetimeLocalValue } from "@/lib/date";
 
@@ -79,6 +79,8 @@ export async function goLiveNowAction(token: string, formData: FormData): Promis
 ${collabLine}`);
     } else {
       await publishPostNow(post.id);
+      // They approved it, so it goes to the Instagram feed too, not just the website.
+      shareToInstagramFeedInBackground(post.id);
       await recordReviewResponse(post.id, "live", null);
       await tellNewsroom(post, "live", collabLine);
     }

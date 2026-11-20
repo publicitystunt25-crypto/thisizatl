@@ -14,7 +14,9 @@ import {
   setSocialShared,
   getDueScheduledPosts,
   markPublishedFromSchedule,
+  getPostById,
 } from "./db";
+import { shareToInstagramFeedInBackground } from "./publishPost";
 import { slugify } from "./slug";
 
 const DAILY_POST_LIMIT = 4;
@@ -235,6 +237,11 @@ export async function publishDueScheduledPosts(): Promise<{ id: number; title: s
         console.error("Article-live notification email failed:", err);
       }
     }
+
+    // Scheduled by the person it's about (through their review link): it goes
+    // to the Instagram feed too, same as when they pick "go live now".
+    const full = await getPostById(post.id);
+    if (full?.review_status === "scheduled") shareToInstagramFeedInBackground(post.id);
 
     published.push({ id: post.id, title: post.title });
   }
