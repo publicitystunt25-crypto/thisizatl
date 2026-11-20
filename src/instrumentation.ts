@@ -3,6 +3,7 @@
 // (those routes still work the same way if one ever does):
 //   - comment replies, every 5 minutes
 //   - admin-scheduled posts going live, every 5 minutes
+//   - at least one Music story posted to the Instagram feed each day (from 11 AM)
 //   - finding and publishing Atlanta news, at most once every 2 hours during
 //     the day (the daily cap in pipeline.ts still limits how many go up)
 const TICK_MS = 5 * 60 * 1000;
@@ -26,6 +27,7 @@ export async function register() {
   const { runPipeline, publishDueScheduledPosts } = await import("@/lib/pipeline");
   const { getSetting, setSetting } = await import("@/lib/db");
   const { sendDueRevisionEmails } = await import("@/lib/reviewRevision");
+  const { ensureDailyMusicFeedPost } = await import("@/lib/publishPost");
 
   // A job that's still running when the next tick fires is left alone, so runs
   // never pile up on the small database connection pool.
@@ -69,6 +71,7 @@ export async function register() {
       await sendDueRevisionEmails();
     });
     void guarded("News pipeline", runNewsPipeline);
+    void guarded("Daily Instagram music post", ensureDailyMusicFeedPost);
   };
 
   setTimeout(() => {

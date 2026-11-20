@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import {
   clearSchedule,
+  getMusicFeedCandidateId,
   getPostById,
+  getSetting,
+  setSetting,
   setIgFeedShared,
   setIgMediaId,
   setSocialShared,
@@ -57,6 +60,50 @@ export async function publishPostNow(id: number): Promise<void> {
   revalidatePath("/admin");
 }
 
+const FEED_DAY_KEY = "ig_feed_last_post_date";
+const FEED_ATTEMPT_KEY = "ig_feed_daily_attempts";
+
+function easternDate(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+}
+
+function easternHour(): number {
+  return Number(
+    new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "America/New_York" }).format(new Date())
+  );
+}
+
+// Makes sure at least one music story reaches the Instagram feed each day.
+// Anything already posted to the feed today (admin Accept All, a client
+// approval, or this job) counts. From 11 AM Atlanta time, if nothing has gone
+// up yet, it shares the newest recent Music story that hasn't been posted. A
+// failure is retried on later ticks, at most 3 times a day.
+export async function ensureDailyMusicFeedPost(): Promise<void> {
+  const today = easternDate();
+  if (easternHour() < 11) return;
+  if ((await getSetting(FEED_DAY_KEY)) === today) return;
+
+  let attempts = 0;
+  try {
+    const saved = JSON.parse((await getSetting(FEED_ATTEMPT_KEY)) || "null") as { date: string; count: number; at: number } | null;
+    if (saved && saved.date === today) {
+      if (saved.count >= 3 || Date.now() - saved.at < 30 * 60 * 1000) return;
+      attempts = saved.count;
+    }
+  } catch {
+    attempts = 0;
+  }
+
+  const id = await getMusicFeedCandidateId();
+  if (!id) {
+    console.log("Daily Instagram music post: no recent Music story is waiting to be posted.");
+    return;
+  }
+  await setSetting(FEED_ATTEMPT_KEY, JSON.stringify({ date: today, count: attempts + 1, at: Date.now() }));
+  console.log(`Daily Instagram music post: sharing post ${id} to the feed.`);
+  await shareToInstagramFeed(id);
+}
+
 // Posts a published article to the Instagram Feed (not just the Story) with a
 // Claude-written caption, a collaborator invite to the artist's account, and
 // @mentions for anyone to tag. Does nothing if it's already been posted or has
@@ -95,8 +142,10 @@ ${toTag.map((h) => "@" + h).join(" ")}` : baseCaption;
   });
   if (feedResult.mediaId) await setIgMediaId(post.id, feedResult.mediaId);
   // Only mark it shared if Instagram actually took it, so the admin's button stays for a retry.
-  if (feedResult.ok) await setIgFeedShared(post.id, true);
-  else console.error("Instagram feed post was not published for post", post.id);
+  if (feedResult.ok) {
+    await setIgFeedShared(post.id, true);
+    await setSetting(FEED_DAY_KEY, easternDate());
+  } else console.error("Instagram feed post was not published for post", post.id);
 }
 
 // Runs the feed post without making the person who approved wait for

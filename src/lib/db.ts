@@ -1099,3 +1099,16 @@ export async function getTrustedSubmitterBySlug(slug: string): Promise<TrustedSu
   );
   return res.rows[0] ?? null;
 }
+
+// The newest recent Music story that has a picture and hasn't been posted to
+// the Instagram feed yet -- what the daily "at least one music post" job shares.
+export async function getMusicFeedCandidateId(): Promise<number | null> {
+  await ensureInit();
+  const res = await pool.query<{ id: number }>(
+    `SELECT id FROM posts
+     WHERE status = 'published' AND category = 'Music' AND image_url IS NOT NULL
+       AND ig_feed_shared = false AND created_at > now() - interval '3 days'
+     ORDER BY created_at DESC LIMIT 1`
+  );
+  return res.rows[0]?.id ?? null;
+}
